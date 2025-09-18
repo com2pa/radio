@@ -1,6 +1,17 @@
 const useRouter = require('express').Router();
 const userServices = require('../services/userServices');
 
+// obtengo todos los usuarios
+useRouter.get('/', async (req, res) => {
+    const result = await userServices.getAllUsers();
+    return res.status(200).json({
+        success: result.success,
+        data: result.data,
+        message: result.message
+    });
+})
+
+// creando usuario
 useRouter.post('/', async (req, res) => {
     try {
         const data = req.body;
@@ -35,5 +46,27 @@ useRouter.post('/', async (req, res) => {
         });
     }
 });
+// actualizando el token
+useRouter.patch('/:id/:token', async (req, res) => {
+    
+    // obtengo el token por el params
+    const token = req.params.token;
+    console.log('token recibido', token);
+    const result = await userServices.updatedUserToken(token);
+    return res.status(result.status).json({
+        success: result.success,
+        data: result.data,
+        message: result.message
+    });
+
+})
+
+// falta por añadir la actualiacion del rol ...
+// terminar de definir si usar user_status o user_verify 
+// para actualizar el rol del usuario
+
+// para user_status si esta activo o inactivo
+// para user_verify si esta verificado o no por email
+
 
 module.exports = useRouter;
