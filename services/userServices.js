@@ -4,6 +4,25 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { PAGE_URL } = require('../config');
 
+// obtengo todos los usuarios
+const getAllUsers = async () => {
+    try {
+        const users = await User.getAllUsers();
+    return {
+        success: true,
+        data: users,
+    }
+    } catch (error) {
+        console.error('Error en getAllUsers:', error);
+        return {
+            success: false,
+            message: error.message,
+            status: 500
+        
+        }
+    }
+}
+// creando usuario
 const createUser = async (data) => {
     try {
         // Verificar si el email ya existe - CORREGIDO
@@ -129,7 +148,93 @@ const createUser = async (data) => {
         };
     }
 }
+// actualizando el token
+const updatedUserToken = async(token)=>{
+    try{
+
+    // verifico el token
+        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        console.log('token decodificado', decodedToken);
+        const id = decodedToken.id;
+        // cambio el estado del usuario a verificado
+        const user = await User.findByIdAndUpdate(
+          id,
+          { user_verify: true },
+          { new: true } // Devuelve el documento actualizado
+          
+        );
+        console.log('usuario verificado', user);
+        if (!user) {
+          return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+        return res.status(200).json({ message: 'Usuario verificado con éxito' });
+    
+      } catch (error) {
+        console.error('Error en verificación:', error);
+        //    encontrar el email del usuario
+        const id = req.params.id;
+        const user = await User.findById(id);
+        console.log('email del usuario', user);
+        // firmar el nuevo token
+        const token = jwt.sign({ id: id }, process.env.ACCESS_TOKEN_SECRET, {
+          expiresIn: '1d',
+        });
+        // enviar correo para verificacion de usuaruio registrado
+    
+        const transporter = nodemailer.createTransport({
+          host: 'smtp.gmail.com',
+          port: 465,
+          secure: true, // Use `true` for port 465, `false` for all other ports
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+          },
+        });
+    
+        //  como enviar el correo
+        await transporter.sendMail({
+          from: `"${process.env.EMAIL_NAME || 'Tu App'}" <${process.env.EMAIL_USER}>`,
+          to: user.user_email, 
+          subject: '¡Tu enlace de verificación ha expirado! 🔄',
+          html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eaeaea; border-radius: 5px; overflow: hidden;">
+          <div style="background: #ff6b4a; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">¡Enlace expirado!</h1>
+          </div>
+          <div style="padding: 20px;">
+            <p style="font-size: 16px;">Hola <strong>${user.user_name}</strong>,</p> // <-- ERROR: 'User.name' debería ser 'user.name'
+            <p style="font-size: 16px;">El enlace de verificación que recibiste anteriormente ha expirado. Por seguridad, hemos generado uno nuevo para que puedas completar tu registro:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${PAGE_URL}/verify/${id}/${token}" 
+                 style="background: #ff6b4a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+                Nuevo enlace de verificación
+              </a>
+            </div>
+            <p style="font-size: 16px;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+            <p style="font-size: 14px; color: #666; word-break: break-all;">${PAGE_URL}/verify/${id}/${token}</p>
+            <p style="font-size: 16px;">Este enlace estará activo por 24 horas.</p>
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eaeaea;">
+              <p style="font-size: 14px; color: #666;">Equipo de Soporte<br>${process.env.EMAIL_NAME || 'Tu App'}</p>
+            </div>
+          </div>
+        </div>
+      `,
+          text: `Hola ${user.user_name},\n\nEl enlace de verificación que recibiste anteriormente ha expirado. Por seguridad, hemos generado uno nuevo para que puedas completar tu registro:\n\n${PAGE_URL}/verify/${id}/${token}\n\nEste enlace estará activo por 24 horas.\n\nEquipo de Soporte,\n${process.env.EMAIL_NAME || 'Tu App'}`
+          
+        });
+    
+        return res
+          .status(400)
+          .json({
+            error:
+              'El link expiro. Se ha enviado un ¡Nuevo link! de verificacion a su correo',
+          });      
+    }
+}
+// falta por añadir la actualizacion del rol ...
 
 module.exports = {
-    createUser
+    createUser,
+    updatedUserToken,
+    getAllUsers
 };
