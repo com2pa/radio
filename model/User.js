@@ -14,6 +14,7 @@ const createUserTable = async () => {
       user_age INT NOT NULL,
       user_role VARCHAR(50) DEFAULT 'user',
       user_status BOOLEAN DEFAULT TRUE,
+      user_verify BOOLEAN DEFAULT FALSE,
       user_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       user_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
@@ -65,7 +66,7 @@ const createUser = async (userData) => {
 
 // READ - Obtener todos los usuarios
 const getAllUsers = async () => {
-  const query = 'SELECT user_id, user_name, user_lastname, user_email, user_role, user_status, user_created_at FROM users';
+  const query = 'SELECT user_id, user_name, user_lastname, user_email, user_role, user_status,user_verify user_created_at FROM users';
   try {
     const result = await pool.query(query);
     return result.rows;
@@ -105,15 +106,16 @@ const updateUser = async (id, userData) => {
     user_address,
     user_phone,
     user_age,
-    user_status
+    user_status,
+    user_verify
   } = userData;
 
   const query = `
     UPDATE users 
     SET user_name = $1, user_lastname = $2, user_email = $3, 
         user_address = $4, user_phone = $5, user_age = $6, 
-        user_status = $7, user_updated_at = CURRENT_TIMESTAMP
-    WHERE user_id = $8
+        user_status = $7, user_verify = $8 user_updated_at = CURRENT_TIMESTAMP
+    WHERE user_id = $9
     RETURNING *
   `;
 
@@ -126,6 +128,7 @@ const updateUser = async (id, userData) => {
       user_phone,
       user_age,
       user_status,
+      user_verify,
       id
     ]);
     return result.rows[0];
