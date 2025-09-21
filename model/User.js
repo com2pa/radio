@@ -13,7 +13,7 @@ const createUserTable = async () => {
       user_phone VARCHAR(15) NOT NULL,
       user_age INT NOT NULL,
       role_id INT DEFAULT 3, -- DEFAULT 'user' (role_id = 3)
-      user_status BOOLEAN DEFAULT TRUE,
+      user_status BOOLEAN DEFAULT FALSE,
       user_verify BOOLEAN DEFAULT FALSE,
       user_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       user_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -187,6 +187,25 @@ const deleteUser = async (id) => {
     }
 };
 
+// UPDATE - Actualizar solo el estado online del usuario
+// UPDATE - Actualizar solo el estado del usuario (user_status)
+const updateUserStatus = async (id, status) => {
+    const query = `
+        UPDATE users 
+        SET user_status = $1, 
+            user_updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $2
+        RETURNING user_id, user_email, user_status
+    `;
+
+    try {
+        const result = await pool.query(query, [status, id]);
+        return result.rows[0];
+    } catch (error) {
+        throw new Error(`Error updating user status: ${error.message}`);
+    }
+};
+
 // Inicializar tabla
 createUserTable();
 
@@ -196,5 +215,6 @@ module.exports = {
     getUserById,
     getUserByEmail,
     updateUser,
+    updateUserStatus,
     deleteUser
 };
