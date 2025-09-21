@@ -14,6 +14,7 @@ const { testConnection } = require('./db/index')
 const useRouter = require('./controllers/user')
 const roleRouter = require('./controllers/role')
 const loginRouter = require('./controllers/login')
+const logoutRouter = require('./controllers/logout')
 testConnection()
 
 
@@ -34,5 +35,6 @@ app.use(morgan('tiny'))
 app.use('/api/register',useRouter)
 app.use('/api/role',roleRouter)
 app.use('/api/login', loginRouter)
+app.use('/api/logout', logoutRouter)
 
 module.exports = app
