@@ -51,12 +51,9 @@ const loginService = async (data, req) => {
         }
 
         // // Actualizar estado del usuario a 'activo' si es necesario
-        // if (userExists.user_status !== 'TRUE') {
-        //     await User.updateUser(
-        //         { user_status: 'TRUE' },
-        //         { where: { user_id: userExists.user_id } }
-        //     );
-        // }
+        if (!userExists.user_status) {
+            await User.updateUserStatus(userExists.user_id, true);
+        }
         // generar el token
         const userForToken = {
             id: userExists.user_id,
