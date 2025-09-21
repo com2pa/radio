@@ -13,6 +13,7 @@ const root = require('./graphql/resolvers')
 const { testConnection } = require('./db/index')
 const useRouter = require('./controllers/user')
 const roleRouter = require('./controllers/role')
+const loginRouter = require('./controllers/login')
 testConnection()
 
 
@@ -32,6 +33,6 @@ app.use(morgan('tiny'))
 
 app.use('/api/register',useRouter)
 app.use('/api/role',roleRouter)
-
+app.use('/api/login', loginRouter)
 
 module.exports = app
