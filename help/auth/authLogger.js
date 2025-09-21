@@ -35,7 +35,7 @@ const systemLogger = {
    */
   logLogout: async (userId, req) => {
     try {
-      await ActivityLog.create({
+      await ActivityLog.createActivityLog({
         user_id: userId,  // Cambiado de user a user_id
         action: 'logout',
         ip_address: req.ip,  // Cambiado a snake_case
