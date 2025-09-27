@@ -17,6 +17,7 @@ const loginRouter = require('./controllers/login')
 const logoutRouter = require('./controllers/logout')
 const MenuRouter = require('./controllers/menu')
 const CategoryNewsRouter = require('./controllers/Category')
+const subcategoriesRouter = require('./controllers/subcategorynew')
 testConnection()
 
 
@@ -40,5 +41,6 @@ app.use('/api/login', loginRouter)
 app.use('/api/logout', logoutRouter)
 app.use('/api/menu', MenuRouter)
 app.use('/api/category-news', CategoryNewsRouter)
+app.use('/api/subcategory-news',subcategoriesRouter)
 
 module.exports = app
