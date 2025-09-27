@@ -1,32 +1,95 @@
-const CategoryNews=require('../model/CategoryNews')
+const CategoryNews = require('../model/CategoryNews')
 
-// obtener todas las categorias de noticias
-const getAllCategoryNews=async()=>{
-    const categories=await CategoryNews.getAllCategoryNews();
-    return categories;
+// Obtener todas las categorías de noticias
+const getAllCategoryNews = async () => {
+    try {
+        const categories = await CategoryNews.getAllCategoryNews();
+        return categories;
+    } catch (error) {
+        throw new Error('Error obteniendo categorías: ' + error.message);
+    }
 }
 
-// crear categoria de noticias
-const createCategoryNews=async(categoryName)=>{
-    // validar que el nombre de la categoria no esté vacío
-    if(!categoryName){
+// Crear categoría de noticias
+const createCategoryNews = async (categoryName) => {
+    // Validar que el nombre de la categoría no esté vacío
+    if (!categoryName || categoryName.trim() === '') {
         throw new Error('El nombre de la categoría es obligatorio');
     }
-    // verificar que la categoria no exista
-    const existingCategories=await CategoryNews.getAllCategoryNews();
-    const categoryExists=existingCategories.find(cat=>cat.category_name.toLowerCase()===categoryName.toLowerCase());
-    if(categoryExists){
-        throw new Error('La categoría ya existe');
+    
+    const trimmedName = categoryName.trim();
+    
+    // Validar longitud
+    if (trimmedName.length > 100) {
+        throw new Error('El nombre de la categoría no puede exceder los 100 caracteres');
     }
-    // crear la categoria
-    const newCategory=await CategoryNews.createCategoryNews(categoryName);
-    return newCategory;
 
-
+    // Crear la categoría (la validación de unicidad se hace en la BD)
+    try {
+        const newCategory = await CategoryNews.createCategoryNews(trimmedName);
+        return newCategory;
+    } catch (error) {
+        throw error; // Re-lanzar el error para manejarlo en el router
+    }
 }
 
-module.exports={
-    createCategoryNews,
-    getAllCategoryNews
+// Actualizar categoría de noticias
+const updateCategoryNews = async (categoryId, categoryName) => {
+    // Validaciones
+    if (!categoryId) {
+        throw new Error('El ID de la categoría es obligatorio');
+    }
+    
+    if (!categoryName || categoryName.trim() === '') {
+        throw new Error('El nombre de la categoría es obligatorio');
+    }
+    
+    const trimmedName = categoryName.trim();
+    
+    if (trimmedName.length > 100) {
+        throw new Error('El nombre de la categoría no puede exceder los 100 caracteres');
+    }
 
+    // Verificar que la categoría exista
+    const existingCategory = await CategoryNews.getCategoryNewsById(categoryId);
+    if (!existingCategory) {
+        throw new Error('La categoría no existe');
+    }
+
+    // Actualizar la categoría
+    try {
+        const updatedCategory = await CategoryNews.updateCategoryNews(categoryId, trimmedName);
+        return updatedCategory;
+    } catch (error) {
+        throw error; // Re-lanzar el error para manejarlo en el router
+    }
+}
+
+// Eliminar categoría de noticias
+const deleteCategoryNews = async (categoryId) => {
+    // Validar ID
+    if (!categoryId) {
+        throw new Error('El ID de la categoría es obligatorio');
+    }
+
+    // Verificar que la categoría exista
+    const existingCategory = await CategoryNews.getCategoryNewsById(categoryId);
+    if (!existingCategory) {
+        throw new Error('La categoría no existe');
+    }
+
+    // Eliminar la categoría
+    try {
+        const deletedCategory = await CategoryNews.deleteCategoryNews(categoryId);
+        return deletedCategory;
+    } catch (error) {
+        throw error; // Re-lanzar el error para manejarlo en el router
+    }
+}
+
+module.exports = {
+    createCategoryNews,
+    getAllCategoryNews,
+    updateCategoryNews,
+    deleteCategoryNews
 }
