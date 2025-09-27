@@ -1,7 +1,33 @@
 // /help/system/systemLogger.js
 const ActivityLog = require('../../model/activityLog');
 
-const systemLogger = {
+const  authLogger= {
+
+
+  /**
+   * Registra intento fallido de login
+   * @param {String} email - Email utilizado
+   * @param {Object} req - Objeto de petición Express
+   * @param {String} reason - Razón del fallo
+   */
+  logFailedAttempt: async (email, req, reason) => {
+    try {
+      await ActivityLog.createActivityLog({
+        action: 'login_failed',
+        ip_address: req.ip, // Cambiado a snake_case
+        user_agent: req.get('User-Agent'), // Cambiado a snake_case
+        metadata: {
+          attempted_email: email, // Cambiado a snake_case
+          method: req.method,
+          path: req.path,
+          reason: reason,
+          timestamp: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('Error registrando intento fallido:', error);
+    }
+  },
   /**
    * Registra login exitoso
    * @param {Object} user - Usuario que inició sesión
@@ -59,7 +85,7 @@ const systemLogger = {
    */
   logAccessDenied: async (user, req, reason) => {
     try {
-      await ActivityLog.create({
+      await ActivityLog.createActivityLog({
         user_id: user?.id,  // Cambiado de _id a id y user a user_id
         action: 'access_denied',
         ip_address: req.ip,  // Cambiado a snake_case
@@ -77,88 +103,7 @@ const systemLogger = {
     }
   },
 
-  /**
-   * Función helper para reintentos
-   */
-  logWithRetry: async function(logFn, maxRetries = 3, delay = 2000) {
-    let attempt = 1;
-    while (attempt <= maxRetries) {
-      try {
-        return await logFn();
-      } catch (error) {
-        if (attempt === maxRetries) throw error;
-        console.warn(`Intento ${attempt} fallido. Reintentando en ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        attempt++;
-      }
-    }
-  },
-
-  /**
-   * Registra eventos del sistema (inicio/parada)
-   * @param {String} action - Tipo de evento (system_start/system_stop)
-   * @param {Object} metadata - Metadatos adicionales
-   */
-  logSystemEvent: async function(action, metadata = {}) {
-    try {
-      await this.logWithRetry(async () => {
-        await ActivityLog.create({
-          action,
-          ip_address: 'system',  // Cambiado a snake_case
-          metadata: {
-            ...metadata,
-            timestamp: new Date(),
-          },
-        });
-      });
-    } catch (error) {
-      console.error(`Error crítico registrando evento del sistema (${action}):`, error);
-      // Fallback: Escribir en archivo local o enviar a servicio externo
-    }
-  },
   
-
-  /**
-   * Registra acciones CRUD (crear, leer, actualizar, eliminar)
-   * @param {Object} user - Usuario que realiza la acción
-   * @param {String} action - Tipo de acción (create, read, update, delete)
-   * @param {String} entityType - Tipo de entidad afectada (ej: 'Aliquot')
-   * @param {String} entityId - ID de la entidad afectada
-   * @param {Object} req - Objeto de petición Express
-   * @param {Object} metadata - Metadatos adicionales
-   */
-  logCrudAction: async (
-    user,
-    action,
-    entityType,
-    entityId,
-    req,
-    metadata = {}
-  ) => {
-    try {
-      // Asegúrate que action sea uno de: create, read, update, delete
-      const validActions = ['create', 'read', 'update', 'delete'];
-      if (!validActions.includes(action)) {
-        throw new Error(`Acción CRUD no válida: ${action}`);
-      }
-      await ActivityLog.createActivityLog({
-        user_id: user?.id,  // Cambiado de _id a id y user a user_id
-        action: `${action}`,
-        entity_type: entityType,  // Cambiado a snake_case
-        entity_id: entityId,  // Cambiado a snake_case
-        ip_address: req.ip,  // Cambiado a snake_case
-        user_agent: req.get('User-Agent'),  // Cambiado a snake_case
-        metadata: {
-          method: req.method,
-          path: req.path,
-          ...metadata,
-          timestamp: new Date(),
-        },
-      });
-    } catch (error) {
-      console.error(`Error registrando acción CRUD (${action}):`, error);
-    }
-  },
 };
 
-module.exports = systemLogger;
+module.exports = authLogger;
