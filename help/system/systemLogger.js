@@ -26,7 +26,7 @@ const systemLogger = {
   logSystemEvent: async function(action, metadata = {}) {
     try {
       await this.logWithRetry(async () => {
-        await ActivityLog.create({
+        await ActivityLog.createActivityLog({
           action,
           ip_address: 'system',  // Cambiado a snake_case
           metadata: {
