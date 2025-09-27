@@ -16,6 +16,7 @@ const roleRouter = require('./controllers/role')
 const loginRouter = require('./controllers/login')
 const logoutRouter = require('./controllers/logout')
 const MenuRouter = require('./controllers/menu')
+const CategoryNewsRouter = require('./controllers/Category')
 testConnection()
 
 
@@ -38,5 +39,6 @@ app.use('/api/role',roleRouter)
 app.use('/api/login', loginRouter)
 app.use('/api/logout', logoutRouter)
 app.use('/api/menu', MenuRouter)
+app.use('/api/category-news', CategoryNewsRouter)
 
 module.exports = app
