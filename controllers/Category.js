@@ -37,5 +37,44 @@ CategoryNewsRouter.post('/create', userExtractor, roleAuthorization(['admin','su
         res.status(500).json({ error: 'Error creando categoría de noticias', details: error.message });
     } 
 });
+// actualizar categoria de noticias (solo admin)
+CategoryNewsRouter.put('/update/:id', userExtractor, roleAuthorization(['admin','superAdmin']), async (req, res) => {
+    const categoryId = req.params.id;
+    const { categoryName } = req.body;
+    try {
+        const updatedCategory = await CategoryNewsServices.updateCategoryNews(categoryId, categoryName);    
+        if (!updatedCategory) {
+            return res.status(404).json({ error: 'Categoría de noticias no encontrada' });
+        }
+        await systemLogger.logSystemEvent(null, req, `Categoría de noticias actualizada: ${categoryName}`);
+        res.status(200).json({
+            success: true,
+            message: 'Categoría de noticias actualizada exitosamente',
+            data: updatedCategory
+        });
+    } catch (error) {
+        await systemLogger.logSystemError(null, req, `Error actualizando categoría de noticias: ${error.message}`);
+        res.status(500).json({ error: 'Error actualizando categoría de noticias', details: error.message });
+    }
+});
+// eliminar categoria de noticias (solo admin)
+CategoryNewsRouter.delete('/delete/:id', userExtractor, roleAuthorization(['admin','superAdmin']), async (req, res) => {    
+    const categoryId = req.params.id;
+    try {
+        const deletedCategory = await CategoryNewsServices.deleteCategoryNews(categoryId);
+        if (!deletedCategory) {
+            return res.status(404).json({ error: 'Categoría de noticias no encontrada' });
+        }
+        await systemLogger.logSystemEvent(null, req, `Categoría de noticias eliminada: ID ${categoryId}`);
+        res.status(200).json({
+            success: true,
+            message: 'Categoría de noticias eliminada exitosamente',
+            data: deletedCategory
+        });
+    } catch (error) {
+        await systemLogger.logSystemError(null, req, `Error eliminando categoría de noticias: ${error.message}`);
+        res.status(500).json({ error: 'Error eliminando categoría de noticias', details: error.message });
+    }
+});
 
 module.exports = CategoryNewsRouter;
