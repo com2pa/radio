@@ -18,6 +18,8 @@ const logoutRouter = require('./controllers/logout')
 const MenuRouter = require('./controllers/menu')
 const CategoryNewsRouter = require('./controllers/Category')
 const subcategoriesRouter = require('./controllers/subcategorynew')
+const CategoryPodscats = require('./controllers/CategoryPodscats')
+const SubcategoryPodcasts = require('./controllers/SubcategoryPodcasts')
 testConnection()
 
 
@@ -40,7 +42,10 @@ app.use('/api/role',roleRouter)
 app.use('/api/login', loginRouter)
 app.use('/api/logout', logoutRouter)
 app.use('/api/menu', MenuRouter)
-app.use('/api/category-news', CategoryNewsRouter)
-app.use('/api/subcategory-news',subcategoriesRouter)
+app.use('/api/category-news', CategoryNewsRouter)//subcategoria noticias
+app.use('/api/subcategory-news',subcategoriesRouter) //noticias
+app.use('/api/category-podscats', CategoryPodscats) //podcasts
+app.use('/api/subcategory-podscats', SubcategoryPodcasts) //subcategoria podcasts
+
 
 module.exports = app
