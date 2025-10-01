@@ -127,6 +127,18 @@ const categoryExists = async (category_id) => {
     }
 };
 
+// Verificar si la subcategoría existe - NUEVA FUNCIÓN
+const subcategoryExists = async (subcategory_id) => {
+    const query = `SELECT COUNT(*) FROM subcategory_podcasts WHERE subcategory_id = $1`;
+    try {
+        const result = await pool.query(query, [subcategory_id]);
+        return parseInt(result.rows[0].count) > 0;
+    } catch (error) {
+        console.error('❌ Error verificando existencia de subcategoría:', error);
+        throw error;
+    }
+};
+
 // Obtener todas las subcategorías de podcasts
 const getAllSubCategoryPodcasts = async () => {
     const query = `
@@ -285,5 +297,6 @@ module.exports = {
     isSubCategoryPodcastsUnique,
     updateSubCategoryPodcasts,
     deleteSubCategoryPodcasts,
-    categoryExists
+    categoryExists,
+    subcategoryExists
 };
