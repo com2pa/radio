@@ -20,6 +20,7 @@ const CategoryNewsRouter = require('./controllers/Category')
 const subcategoriesRouter = require('./controllers/subcategorynew')
 const CategoryPodscats = require('./controllers/CategoryPodscats')
 const SubcategoryPodcasts = require('./controllers/SubcategoryPodcasts')
+const podscatsRouter = require('./controllers/podscats')
 testConnection()
 
 
@@ -43,9 +44,10 @@ app.use('/api/login', loginRouter)
 app.use('/api/logout', logoutRouter)
 app.use('/api/menu', MenuRouter)
 app.use('/api/category-news', CategoryNewsRouter)//subcategoria noticias
-app.use('/api/subcategory-news',subcategoriesRouter) //noticias
-app.use('/api/category-podscats', CategoryPodscats) //podcasts
+app.use('/api/subcategory-news',subcategoriesRouter) //categorizacion noticias
+app.use('/api/category-podscats', CategoryPodscats) //Categorizacion podcasts
 app.use('/api/subcategory-podscats', SubcategoryPodcasts) //subcategoria podcasts
+app.use('/api/podcasts', podscatsRouter) // crear podcasts
 
 
 module.exports = app
