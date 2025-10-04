@@ -21,6 +21,7 @@ const subcategoriesRouter = require('./controllers/subcategorynew')
 const CategoryPodscats = require('./controllers/CategoryPodscats')
 const SubcategoryPodcasts = require('./controllers/SubcategoryPodcasts')
 const podscatsRouter = require('./controllers/podscats')
+const refresRouter = require('./controllers/refresh')
 testConnection()
 
 
@@ -48,6 +49,6 @@ app.use('/api/subcategory-news',subcategoriesRouter) //categorizacion noticias
 app.use('/api/category-podscats', CategoryPodscats) //Categorizacion podcasts
 app.use('/api/subcategory-podscats', SubcategoryPodcasts) //subcategoria podcasts
 app.use('/api/podcasts', podscatsRouter) // crear podcasts
-
+app.use('/api/refres', refresRouter);// inicio de sesion persistida
 
 module.exports = app
