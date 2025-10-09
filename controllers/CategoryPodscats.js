@@ -7,11 +7,7 @@ const CategoryPodscatsServices = require('../services/CategoryPodscatsServices')
 CategoryPodscats.get('/all', async (req, res) => {
     try {
         const categories = await CategoryPodscatsServices.getAllCategoryPodscats();
-        res.status(200).json({
-            success: true,
-            message: 'Categorías de podcasts obtenidas exitosamente',
-            data: categories
-        });
+        res.status(200).json(categories);
     } catch (error) {
         await systemLogger.logSystemError(null, req, `Error obteniendo categorías de podcasts: ${error.message}`);
         res.status(500).json({ 
@@ -77,11 +73,7 @@ CategoryPodscats.post('/create', userExtractor, roleAuthorization(['admin', 'sup
         const newCategory = await CategoryPodscatsServices.createCategoryPodscats(categoryName, userId);
         await systemLogger.logSystemEvent(req.user.id, req, `Categoría de podcasts creada: ${categoryName} por usuario: ${userId}`);
         
-        res.status(201).json({
-            success: true,
-            message: 'Categoría de podcasts creada exitosamente',
-            data: newCategory
-        });
+        res.status(201).json(newCategory);
     } catch (error) {
         await systemLogger.logSystemError(req.user?.id, req, `Error creando categoría de podcasts: ${error.message}`);
         res.status(500).json({ 
@@ -101,11 +93,7 @@ CategoryPodscats.put('/update/:id', userExtractor, roleAuthorization(['admin', '
         const updatedCategory = await CategoryPodscatsServices.updateCategoryPodscats(categoryId, categoryName);
         
         await systemLogger.logSystemEvent(req.user.id, req, `Categoría de podcasts actualizada: ID ${categoryId}`);
-        res.status(200).json({
-            success: true,
-            message: 'Categoría de podcasts actualizada exitosamente',
-            data: updatedCategory
-        });
+        res.status(200).json(updatedCategory);
     } catch (error) {
         await systemLogger.logSystemError(req.user?.id, req, `Error actualizando categoría de podcasts: ${error.message}`);
         
@@ -132,11 +120,7 @@ CategoryPodscats.delete('/delete/:id', userExtractor, roleAuthorization(['admin'
         const deletedCategory = await CategoryPodscatsServices.deleteCategoryPodscats(categoryId);
         
         await systemLogger.logSystemEvent(req.user.id, req, `Categoría de podcasts eliminada: ID ${categoryId}`);
-        res.status(200).json({
-            success: true,
-            message: 'Categoría de podcasts eliminada exitosamente',
-            data: deletedCategory
-        });
+        res.status(200).json(deletedCategory);
     } catch (error) {
         await systemLogger.logSystemError(req.user?.id, req, `Error eliminando categoría de podcasts: ${error.message}`);
         

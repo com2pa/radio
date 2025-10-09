@@ -1,7 +1,7 @@
 const User = require('../model/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const systemLogger = require('../help/system/systemLogger');
+// const systemLogger = require('../help/system/systemLogger');
 const authLogger = require('../help/auth/authLogger');
 
 
@@ -10,7 +10,7 @@ const loginService = async (data, req) => {
     try {
         if (!data || !data.user_email || !data.user_password) {
             
-            systemLogger.logFailedAttempt(data.user_email || 'unknown', req, 'Datos incompletos');
+            authLogger.logFailedAttempt(data.user_email || 'no encontrado', req, 'Datos incompletos');
             return {
                 success: false,
                 status: 400,
@@ -21,7 +21,7 @@ const loginService = async (data, req) => {
         const userExists = await User.getUserByEmail(data.user_email);
         if (!userExists) {
             
-            systemLogger.logFailedAttempt(data.user_email, req, 'Usuario no encontrado');
+            authLogger.logFailedAttempt(data.user_email, req, 'Usuario no encontrado');
             return {
                 success: false,
                 status: 404,
@@ -31,7 +31,7 @@ const loginService = async (data, req) => {
         // verificar si el usuario está verificado
         if (!userExists.user_verify) {
             
-            systemLogger.logFailedAttempt(data.user_email, req, 'Usuario no verificado');
+            authLogger.logFailedAttempt(data.user_email, req, 'Usuario no verificado');
             return {
                 success: false,
                 status: 403,
@@ -42,7 +42,7 @@ const loginService = async (data, req) => {
         const isCorrect = await bcrypt.compare(data.user_password, userExists.user_password);
         if (!isCorrect) {
             
-            systemLogger.logFailedAttempt(data.user_email, req, 'Contraseña incorrecta');
+            authLogger.logFailedAttempt(data.user_email, req, 'Contraseña incorrecta');
             return {
                 success: false,
                 status: 400,

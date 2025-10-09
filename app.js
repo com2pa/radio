@@ -44,7 +44,7 @@ app.use('/api/role',roleRouter)
 app.use('/api/login', loginRouter)
 app.use('/api/logout', logoutRouter)
 app.use('/api/menu', MenuRouter)
-app.use('/api/category-news', CategoryNewsRouter)//subcategoria noticias
+app.use('/api/category-news', CategoryNewsRouter)//categoria noticias
 app.use('/api/subcategory-news',subcategoriesRouter) //categorizacion noticias
 app.use('/api/category-podscats', CategoryPodscats) //Categorizacion podcasts
 app.use('/api/subcategory-podscats', SubcategoryPodcasts) //subcategoria podcasts

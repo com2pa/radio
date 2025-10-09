@@ -8,11 +8,7 @@ const CategoryNewsServices = require('../services/CategoryNewsServices');
 CategoryNewsRouter.get('/all', async (req, res) => {
     try {
         const categories = await CategoryNewsServices.getAllCategoryNews();
-        res.status(200).json({
-            success: true,
-            message: 'Categorías de noticias obtenidas exitosamente',
-            data: categories
-        });
+        res.status(200).json(categories);
     }
     catch (error) {
         await systemLogger.logSystemError(null, req, `Error obteniendo categorías de noticias: ${error.message}`);
@@ -27,11 +23,9 @@ CategoryNewsRouter.post('/create', userExtractor, roleAuthorization(['admin','su
         // const newCategory = await CategoryNewsServices.createCategoryNews(categoryName);
         const newCategory= await CategoryNewsServices.createCategoryNews(categoryName);
         await systemLogger.logSystemEvent(null, req, `Categoría de noticias creada: ${categoryName}`);  
-        res.status(201).json({
-            success: true,
-            message: 'Categoría de noticias creada exitosamente',
-            data: newCategory
-        });
+        res.status(201).json(
+           newCategory
+        );
     } catch (error) {
         await systemLogger.logSystemError(null, req, `Error creando categoría de noticias: ${error.message}`);
         res.status(500).json({ error: 'Error creando categoría de noticias', details: error.message });
@@ -47,11 +41,8 @@ CategoryNewsRouter.put('/update/:id', userExtractor, roleAuthorization(['admin',
             return res.status(404).json({ error: 'Categoría de noticias no encontrada' });
         }
         await systemLogger.logSystemEvent(null, req, `Categoría de noticias actualizada: ${categoryName}`);
-        res.status(200).json({
-            success: true,
-            message: 'Categoría de noticias actualizada exitosamente',
-            data: updatedCategory
-        });
+        res.status(200).json( updatedCategory
+        );
     } catch (error) {
         await systemLogger.logSystemError(null, req, `Error actualizando categoría de noticias: ${error.message}`);
         res.status(500).json({ error: 'Error actualizando categoría de noticias', details: error.message });
@@ -66,11 +57,8 @@ CategoryNewsRouter.delete('/delete/:id', userExtractor, roleAuthorization(['admi
             return res.status(404).json({ error: 'Categoría de noticias no encontrada' });
         }
         await systemLogger.logSystemEvent(null, req, `Categoría de noticias eliminada: ID ${categoryId}`);
-        res.status(200).json({
-            success: true,
-            message: 'Categoría de noticias eliminada exitosamente',
-            data: deletedCategory
-        });
+        res.status(200).json(deletedCategory
+        );
     } catch (error) {
         await systemLogger.logSystemError(null, req, `Error eliminando categoría de noticias: ${error.message}`);
         res.status(500).json({ error: 'Error eliminando categoría de noticias', details: error.message });

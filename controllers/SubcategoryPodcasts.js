@@ -7,11 +7,7 @@ const SubCategoryPodcastsServices = require('../services/subcategoryPodcastsServ
 SubcategoryPodcasts.get('/all', async (req, res) => {
     try {
         const subcategories = await SubCategoryPodcastsServices.getAllSubCategoryPodcasts();
-        res.status(200).json({
-            success: true,
-            message: 'Subcategorías de podcasts obtenidas exitosamente',
-            data: subcategories
-        });
+        res.status(200).json(subcategories);
     } catch (error) {
         await systemLogger.logSystemError(null, req, `Error obteniendo subcategorías de podcasts: ${error.message}`);
         res.status(500).json({ 
@@ -29,11 +25,9 @@ SubcategoryPodcasts.get('/category/:category_id', async (req, res) => {
         const SubCategoryPodcasts = require('../model/subcategoryPodcasts');
         const subcategories = await SubCategoryPodcasts.getSubCategoryPodcastsByCategory(category_id);
         
-        res.status(200).json({
-            success: true,
-            message: 'Subcategorías de podcasts obtenidas exitosamente',
-            data: subcategories
-        });
+        res.status(200).json(
+             subcategories
+        );
     } catch (error) {
         await systemLogger.logSystemError(null, req, `Error obteniendo subcategorías de podcasts por categoría: ${error.message}`);
         res.status(500).json({ 
@@ -58,11 +52,8 @@ SubcategoryPodcasts.get('/:id', async (req, res) => {
             });
         }
         
-        res.status(200).json({
-            success: true,
-            message: 'Subcategoría de podcasts obtenida exitosamente',
-            data: subcategory
-        });
+        res.status(200).json(subcategory
+        );
     } catch (error) {
         await systemLogger.logSystemError(null, req, `Error obteniendo subcategoría de podcasts: ${error.message}`);
         res.status(500).json({ 
@@ -86,11 +77,8 @@ SubcategoryPodcasts.post('/create', userExtractor, roleAuthorization(['admin', '
         
         await systemLogger.logSystemEvent(req.user.id, req, `Subcategoría de podcasts creada: ${subcategory_name} por usuario: ${userId}`);
         
-        res.status(201).json({
-            success: true,
-            message: 'Subcategoría de podcasts creada exitosamente',
-            data: newSubCategory
-        });
+        res.status(201).json( newSubCategory
+        );
     } catch (error) {
         await systemLogger.logSystemError(req.user?.id, req, `Error creando subcategoría de podcasts: ${error.message}`);
         res.status(500).json({ 
@@ -114,11 +102,8 @@ SubcategoryPodcasts.put('/update/:id', userExtractor, roleAuthorization(['admin'
         
         await systemLogger.logSystemEvent(req.user.id, req, `Subcategoría de podcasts actualizada: ID ${subcategoryId}`);
         
-        res.status(200).json({
-            success: true,
-            message: 'Subcategoría de podcasts actualizada exitosamente',
-            data: updatedSubCategory
-        });
+        res.status(200).json( updatedSubCategory
+        );
     } catch (error) {
         await systemLogger.logSystemError(req.user?.id, req, `Error actualizando subcategoría de podcasts: ${error.message}`);
         
@@ -146,11 +131,8 @@ SubcategoryPodcasts.delete('/delete/:id', userExtractor, roleAuthorization(['adm
         
         await systemLogger.logSystemEvent(req.user.id, req, `Subcategoría de podcasts eliminada: ID ${subcategoryId}`);
         
-        res.status(200).json({
-            success: true,
-            message: 'Subcategoría de podcasts eliminada exitosamente',
-            data: result
-        });
+        res.status(200).json( result
+        );
     } catch (error) {
         await systemLogger.logSystemError(req.user?.id, req, `Error eliminando subcategoría de podcasts: ${error.message}`);
         
