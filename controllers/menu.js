@@ -56,7 +56,7 @@ MenuRouter.post('/create', userExtractor, adminAuthorization, async (req, res) =
 MenuRouter.get('/main', async (req, res) => {
     try {
         const menu = await menuService.getHierarchicalMenuByType('user', 'main');
-        console.log(menu)
+        // console.log(menu)
         res.status(200).json({
             success: true,
             message: 'Menú principal obtenido exitosamente',

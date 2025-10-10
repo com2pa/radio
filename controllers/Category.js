@@ -15,7 +15,6 @@ CategoryNewsRouter.get('/all', async (req, res) => {
         res.status(500).json({ error: 'Error obteniendo categorías de noticias', details: error.message });
     }
 });
-
 // crear categoria de noticias (solo admin)
 CategoryNewsRouter.post('/create', userExtractor, roleAuthorization(['admin','superAdmin']), async (req, res) => {
     const { categoryName } = req.body;

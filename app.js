@@ -7,7 +7,7 @@ const morgan = require("morgan")
 // const { graphqlHTTP } = require('graphql-http')
 const schema = require('./graphql/schema')
 const root = require('./graphql/resolvers')
-
+const path = require('path');
 
 // verificar la conexión a la base de datos
 const { testConnection } = require('./db/index')
@@ -22,6 +22,7 @@ const CategoryPodscats = require('./controllers/CategoryPodscats')
 const SubcategoryPodcasts = require('./controllers/SubcategoryPodcasts')
 const podscatsRouter = require('./controllers/podscats')
 const refresRouter = require('./controllers/refresh')
+const newsRouter = require('./controllers/news')
 testConnection()
 
 
@@ -50,5 +51,8 @@ app.use('/api/category-podscats', CategoryPodscats) //Categorizacion podcasts
 app.use('/api/subcategory-podscats', SubcategoryPodcasts) //subcategoria podcasts
 app.use('/api/podcasts', podscatsRouter) // crear podcasts
 app.use('/api/refres', refresRouter);// inicio de sesion persistida
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // // Servir archivos estáticos desde la carpeta uploads
+app.use('/api/news',newsRouter)
+
 
 module.exports = app

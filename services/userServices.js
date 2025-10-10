@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { PAGE_URL } = require('../config');
+const Role = require('../model/Role')
 
 // obtengo todos los usuarios
 const getAllUsers = async () => {
@@ -157,7 +158,7 @@ const updatedUserToken = async(token)=>{
         console.log('token decodificado', decodedToken);
         const id = decodedToken.id;
         // cambio el estado del usuario a verificado
-        const user = await User.findByIdAndUpdate(
+        const user = await User.updateUser(
           id,
           { user_verify: true },
           { new: true } // Devuelve el documento actualizado
@@ -167,7 +168,11 @@ const updatedUserToken = async(token)=>{
         if (!user) {
           return res.status(404).json({ error: 'Usuario no encontrado' });
         }
-        return res.status(200).json({ message: 'Usuario verificado con éxito' });
+        return {
+            success: true,
+            status: 200,
+            message: 'Usuario verificado con éxito'
+        };
     
       } catch (error) {
         console.error('Error en verificación:', error);
@@ -231,10 +236,97 @@ const updatedUserToken = async(token)=>{
           });      
     }
 }
-// falta por añadir la actualizacion del rol ...
+
+// Actualizar rol del usuario
+const updateUserRole = async (userId, roleData) => {
+    try {
+        const { role_id, role_name } = roleData;
+
+        // Validar que se proporcione algún identificador del rol
+        if (!role_id && !role_name) {
+            return {
+                success: false,
+                status: 400,
+                message: 'Se requiere role_id o role_name para actualizar el rol'
+            };
+        }
+
+        // Verificar que el usuario existe
+        const user = await User.getUserById(userId);
+        if (!user) {
+            return {
+                success: false,
+                status: 404,
+                message: 'Usuario no encontrado'
+            };
+        }
+
+        let roleIdToAssign;
+
+        // Si se proporciona role_name, buscar el ID correspondiente
+        if (role_name) {
+            const role = await Role.getRoleByName(role_name);
+            if (!role) {
+                return {
+                    success: false,
+                    status: 404,
+                    message: 'Rol no encontrado'
+                };
+            }
+            roleIdToAssign = role.role_id;
+        } else {
+            // Si se proporciona role_id, verificar que existe
+            const role = await Role.getRoleById(role_id);
+            if (!role) {
+                return {
+                    success: false,
+                    status: 404,
+                    message: 'Rol no encontrado'
+                };
+            }
+            roleIdToAssign = role_id;
+        }
+
+        // Actualizar el rol del usuario
+        const updatedUser = await User.updateUser(userId, {
+            role_id: roleIdToAssign,
+            // Mantener los demás datos del usuario
+            user_name: user.user_name,
+            user_lastname: user.user_lastname,
+            user_email: user.user_email,
+            user_address: user.user_address,
+            user_phone: user.user_phone,
+            user_age: user.user_age,
+            user_status: user.user_status,
+            user_verify: user.user_verify
+        });
+
+        return {
+            success: true,
+            status: 200,
+            data: {
+                user_id: updatedUser.user_id,
+                user_email: updatedUser.user_email,
+                role_id: updatedUser.role_id,
+                role_name: (await Role.getRoleById(roleIdToAssign)).role_name
+            },
+            message: 'Rol de usuario actualizado exitosamente'
+        };
+
+    } catch (error) {
+        console.error('Error en servicio de usuario:', error);
+        return {
+            success: false,
+            status: 500,
+            message: 'Error interno del servidor'
+        };
+    }
+}
+
 
 module.exports = {
     createUser,
     updatedUserToken,
-    getAllUsers
+    getAllUsers,
+    updateUserRole
 };
