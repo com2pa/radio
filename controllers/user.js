@@ -32,11 +32,7 @@ useRouter.post('/', async (req, res) => {
         const result = await userServices.createUser(data);
         
         // Responder según el resultado
-        return res.status(result.status).json({
-            success: result.success,
-            data: result.data,
-            message: result.message
-        });
+        return res.status(result.status).json(result);
 
     } catch (error) {
         console.error('Error en ruta de usuario:', error);
@@ -48,18 +44,29 @@ useRouter.post('/', async (req, res) => {
 });
 // actualizando el token
 useRouter.patch('/:id/:token', async (req, res) => {
-    
-    // obtengo el token por el params
-    const token = req.params.token;
-    console.log('token recibido', token);
-    const result = await userServices.updatedUserToken(token);
-    return res.status(result.status).json({
-        success: result.success,
-        data: result.data,
-        message: result.message
-    });
+    try {
+        // obtengo el token y el id por los params
+        const { token, id } = req.params;
+        console.log('token recibido', token);
+        console.log('id recibido', id);
+        
+        const result = await userServices.updatedUserToken(token, id);
+        
+        // Siempre devolver respuesta JSON, no redirección
+        return res.status(result.status).json({
+            success: result.success,
+            data: result.data,
+            message: result.message
+        });
 
-})
+    } catch (error) {
+        console.error('Error en ruta de verificación:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor'
+        });
+    }
+});
 
 // Actualizar rol del usuario
 useRouter.put('/:id/role', async (req, res) => {

@@ -6,11 +6,11 @@ const systemLogger = require('../help/system/systemLogger');
 // Middleware para extraer y verificar el usuario del token
 const userExtractor = async (req, res, next) => {
   try {
-    // console.log('🔐 MIDDLEWARE INICIADO - Ruta:', req.path);
-    // console.log('🔐 Headers recibidos:', req.headers);
-    // console.log('🍪 Cookies recibidas:', req.cookies);
+    console.log('🔐 MIDDLEWARE INICIADO - Ruta:', req.path);
+    console.log('🔐 Headers recibidos:', req.headers);
+    console.log('🍪 Cookies recibidas:', req.cookies);
     const token = req.cookies?.accesstoken || req.headers.authorization?.split(' ')[1];
-    // console.log('🔐 Token extraído:', token ? 'SÍ' : 'NO');
+    console.log('🔐 Token extraído:', token ? 'SÍ' : 'NO');
     if (!token) {
       console.log('❌ No se encontró token');
       // await authLogger.logAccessDenied(null, req, 'Token no proporcionado');
@@ -36,7 +36,7 @@ const userExtractor = async (req, res, next) => {
       verify: user.user_verify     // user_verify en lugar de verify
     };
 
-    // console.log('🔐 Usuario adaptado:', adaptedUser);
+    console.log('🔐 Usuario adaptado:', adaptedUser);
 
     if (!adaptedUser.verify) {
       await authLogger.logAccessDenied(adaptedUser._id, req, 'Cuenta no verificada');
@@ -65,21 +65,76 @@ const roleAuthorization = (roles) => {
         return res.status(401).json({ error: 'Autenticación requerida' });
       }
 
-      if (!roles.includes(req.user.role)) {
-        await authLogger.logAccessDenied(req.user._id, req, `Intento de acceso no autorizado. Rol requerido: ${roles.join(', ')}`);
+      // Obtener información completa del usuario incluyendo role_id
+      const user = await User.getUserById(req.user._id);
+      if (!user) {
+        await authLogger.logAccessDenied(req.user._id, req, 'Usuario no encontrado en autorización');
+        return res.status(401).json({ error: 'Usuario no válido' });
+      }
+
+      console.log('🔐 Usuario completo para autorización:', user);
+      console.log('🔐 Roles requeridos:', roles);
+
+      // Verificar permisos basado en role_id
+      const hasPermissionById = checkRolePermission(user.role_id, roles);
+      console.log('🔐 Tiene permisos por ID:', hasPermissionById);
+      
+      // Verificar permisos por nombre de rol también
+      const hasPermissionByName = roles.includes(user.role_name);
+      console.log('🔐 Verificando por nombre de rol:', user.role_name, 'en:', roles, 'resultado:', hasPermissionByName);
+      
+      const hasPermission = hasPermissionById || hasPermissionByName;
+      console.log('🔐 Tiene permisos (final):', hasPermission);
+      
+      if (!hasPermission) {
+        await authLogger.logAccessDenied(req.user._id, req, `Intento de acceso no autorizado. Rol requerido: ${roles.join(', ')}. Rol actual: ${user.role_name} (ID: ${user.role_id})`);
         return res.status(403).json({ 
-          error: 'Acceso no autorizado',
+          error: `Solo usuarios con rol "${roles.join('", "')}" pueden realizar esta acción`,
           requiredRoles: roles,
-          currentRole: req.user.role
+          currentRole: user.role_name,
+          currentRoleId: user.role_id
         });
       }
 
       next();
     } catch (error) {
-      // await systemLogger.logSystemError(req.user?._id, req, 'Error en autorización de rol', error);
+      console.error('Error en autorización de rol:', error);
       return res.status(500).json({ error: 'Error interno al verificar permisos' });
     }
   };
+};
+
+// Función auxiliar para verificar permisos de rol
+const checkRolePermission = (userRoleId, requiredRoles) => {
+  console.log('🔐 checkRolePermission - userRoleId:', userRoleId, 'requiredRoles:', requiredRoles);
+  
+  // Mapeo de nombres de roles a IDs
+  const roleMap = {
+    'user': 3,
+    'view': 4,
+    'edit': 5,
+    'admin': 6,
+    'superAdmin': 7
+  };
+
+  // Convertir roles requeridos a IDs mínimos
+  const requiredRoleIds = requiredRoles.map(role => roleMap[role]).filter(id => id !== undefined);
+  
+  console.log('🔐 requiredRoleIds:', requiredRoleIds);
+  
+  // Si no se encontraron roles válidos, denegar acceso
+  if (requiredRoleIds.length === 0) {
+    console.log('🔐 No se encontraron roles válidos');
+    return false;
+  }
+
+  // Verificar si el usuario tiene al menos uno de los roles requeridos
+  const minRequiredRoleId = Math.min(...requiredRoleIds);
+  const hasPermission = userRoleId >= minRequiredRoleId;
+  
+  console.log('🔐 minRequiredRoleId:', minRequiredRoleId, 'hasPermission:', hasPermission);
+  
+  return hasPermission;
 };
 
 // Middleware para verificar si el usuario está activo/online

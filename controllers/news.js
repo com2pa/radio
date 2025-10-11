@@ -43,6 +43,94 @@ const logRequest = (req, res, next) => {
     next();
 };
 
+// Endpoint temporal para verificar roles
+newsRouter.get('/debug/roles', async (req, res) => {
+    try {
+        const { pool } = require('../db/index');
+        const result = await pool.query('SELECT * FROM roles ORDER BY role_id');
+        res.json({
+            success: true,
+            data: result.rows,
+            message: 'Roles obtenidos para depuración'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener roles',
+            error: error.message
+        });
+    }
+});
+
+// Endpoint temporal para verificar usuario específico
+newsRouter.get('/debug/user/:id', async (req, res) => {
+    try {
+        const { pool } = require('../db/index');
+        const userId = req.params.id;
+        const result = await pool.query(`
+            SELECT u.*, r.role_name, r.role_id as role_table_id
+            FROM users u 
+            INNER JOIN roles r ON u.role_id = r.role_id 
+            WHERE u.user_id = $1
+        `, [userId]);
+        
+        res.json({
+            success: true,
+            data: result.rows[0] || null,
+            message: `Usuario ${userId} obtenido para depuración`
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener usuario',
+            error: error.message
+        });
+    }
+});
+
+// Endpoint temporal para verificar subcategorías
+newsRouter.get('/debug/subcategories', async (req, res) => {
+    try {
+        const { pool } = require('../db/index');
+        const result = await pool.query('SELECT * FROM subcategories ORDER BY subcategory_id');
+        res.json({
+            success: true,
+            data: result.rows,
+            message: 'Subcategorías obtenidas para depuración'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener subcategorías',
+            error: error.message
+        });
+    }
+});
+
+// Endpoint temporal para verificar estructura de tabla news
+newsRouter.get('/debug/news-structure', async (req, res) => {
+    try {
+        const { pool } = require('../db/index');
+        const result = await pool.query(`
+            SELECT column_name, data_type, is_nullable, column_default
+            FROM information_schema.columns 
+            WHERE table_name = 'news' 
+            ORDER BY ordinal_position
+        `);
+        res.json({
+            success: true,
+            data: result.rows,
+            message: 'Estructura de tabla news obtenida para depuración'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener estructura de tabla news',
+            error: error.message
+        });
+    }
+});
+
 newsRouter.use(logRequest);
 
 // Servicio auxiliar para manejar la imagen
@@ -99,7 +187,10 @@ newsRouter.post('/create',
             });
         }
 
-        const result = await newsServices.createNewsService(body, user.user_id);
+        console.log('📰 Controlador - Usuario:', user);
+        console.log('📰 Controlador - UserId a pasar:', user._id);
+        
+        const result = await newsServices.createNewsService(body, user._id);
         
         if (result.success) {
             res.status(201).json(result);
@@ -124,7 +215,6 @@ newsRouter.post('/create',
     }
 });
 
-// ... (el resto del código se mantiene igual, pero corrige el orden en otras rutas también)
 
 // UPDATE - Actualizar noticia con imagen opcional
 newsRouter.put('/:id', upload.single('news_image'), handleImageUpload,userExtractor, roleAuthorization(['admin','superAdmin','edit']), async (req, res) => {
@@ -164,7 +254,7 @@ newsRouter.put('/:id', upload.single('news_image'), handleImageUpload,userExtrac
             }
         }
 
-        const result = await newsServices.updateNewsService(newsId, body, user.user_id);
+        const result = await newsServices.updateNewsService(newsId, body, user._id);
         
         if (result.success) {
             // Eliminar imagen anterior si se subió una nueva
@@ -291,7 +381,7 @@ newsRouter.get('/:id', async (req, res) => {
 });
 
 // READ - Obtener noticias del usuario actual
-newsRouter.get('/user/my-news', async (req, res) => {
+newsRouter.get('/user/my-news',  userExtractor, roleAuthorization(['admin','superAdmin','edit']), async (req, res) => {
     try {
         const { user } = req;
         
@@ -302,7 +392,7 @@ newsRouter.get('/user/my-news', async (req, res) => {
             });
         }
 
-        const result = await newsServices.getNewsByUserService(user.user_id);
+        const result = await newsServices.getNewsByUserService(user._id);
         
         // Agregar URL completa de la imagen a cada noticia
         if (result.success && result.data) {
@@ -473,7 +563,7 @@ newsRouter.patch('/:id/status', userExtractor, roleAuthorization(['admin','super
             });
         }
 
-        const result = await newsServices.updateNewsStatusService(newsId, status, user.user_id);
+        const result = await newsServices.updateNewsStatusService(newsId, status, user._id);
         
         if (result.success) {
             res.status(200).json(result);
@@ -513,7 +603,7 @@ newsRouter.delete('/:id',userExtractor, roleAuthorization(['admin','superAdmin']
         // Obtener noticia para eliminar la imagen asociada
         const currentNews = await newsServices.getNewsByIdService(newsId);
         
-        const result = await newsServices.deleteNewsService(newsId, user.user_id);
+        const result = await newsServices.deleteNewsService(newsId, user._id);
         
         if (result.success) {
             // Eliminar imagen asociada si existe

@@ -28,8 +28,54 @@ const createNewsTable = async () => {
     try {
         await pool.query(query);
         console.log('✅ Tabla "news" creada/verificada exitosamente');
+        
+        // Verificar si la columna subcategory_id existe, si no, agregarla
+        await addSubcategoryColumnIfNotExists();
     } catch (error) {
         console.error('❌ Error creando tabla news:', error);
+    }
+};
+
+// Función para agregar la columna subcategory_id si no existe
+const addSubcategoryColumnIfNotExists = async () => {
+    try {
+        // Verificar si la columna existe
+        const checkColumnQuery = `
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'news' AND column_name = 'subcategory_id'
+        `;
+        
+        const result = await pool.query(checkColumnQuery);
+        
+        if (result.rows.length === 0) {
+            console.log('🔧 Agregando columna subcategory_id a la tabla news...');
+            
+            // Agregar la columna
+            const addColumnQuery = `
+                ALTER TABLE news 
+                ADD COLUMN subcategory_id INT DEFAULT 1
+            `;
+            
+            await pool.query(addColumnQuery);
+            
+            // Agregar la restricción de clave foránea
+            const addForeignKeyQuery = `
+                ALTER TABLE news 
+                ADD CONSTRAINT fk_subcategory
+                FOREIGN KEY(subcategory_id) 
+                REFERENCES subcategories(subcategory_id)
+                ON DELETE RESTRICT
+            `;
+            
+            await pool.query(addForeignKeyQuery);
+            
+            console.log('✅ Columna subcategory_id agregada exitosamente');
+        } else {
+            console.log('✅ Columna subcategory_id ya existe');
+        }
+    } catch (error) {
+        console.error('❌ Error agregando columna subcategory_id:', error);
     }
 };
 
@@ -43,12 +89,12 @@ const createNews = async (newsData, userId) => {
         subcategory_id
     } = newsData;
 
-    // Verificar que el usuario tenga rol 'edit'
+    // Verificar que el usuario tenga rol 'edit' o superior (edit, admin, superAdmin)
     const userCheckQuery = `
-        SELECT u.user_id, r.role_name 
+        SELECT u.user_id, r.role_name, r.role_id
         FROM users u 
         INNER JOIN roles r ON u.role_id = r.role_id 
-        WHERE u.user_id = $1 AND r.role_name = 'edit'
+        WHERE u.user_id = $1 AND r.role_id >= 5
     `;
 
     // Verificar que la subcategoría existe
@@ -57,10 +103,14 @@ const createNews = async (newsData, userId) => {
     `;
 
     try {
+        console.log('📰 Verificando permisos para usuario:', userId);
+        
         // Verificar permisos del usuario
         const userResult = await pool.query(userCheckQuery, [userId]);
+        console.log('📰 Resultado de verificación de usuario:', userResult.rows);
+        
         if (userResult.rows.length === 0) {
-            throw new Error('Solo usuarios con rol "edit" pueden crear noticias');
+            throw new Error('Solo usuarios con rol "edit" o superior pueden crear noticias');
         }
 
         // Verificar que la subcategoría existe
@@ -274,11 +324,12 @@ const updateNews = async (id, newsData, userId) => {
     const permissionQuery = `
         SELECT 
             n.user_id as news_author,
-            r.role_name
+            r.role_name,
+            r.role_id
         FROM news n
         INNER JOIN users u ON u.user_id = $2
         INNER JOIN roles r ON u.role_id = r.role_id
-        WHERE n.news_id = $1 AND (n.user_id = $2 OR r.role_name IN ('admin', 'superAdmin'))
+        WHERE n.news_id = $1 AND (n.user_id = $2 OR r.role_id >= 6)
     `;
 
     // Verificar que la subcategoría existe (si se está actualizando)
@@ -368,10 +419,10 @@ const updateNews = async (id, newsData, userId) => {
 const deleteNews = async (id, userId) => {
     // Verificar que el usuario tenga rol 'admin' o 'superAdmin'
     const permissionQuery = `
-        SELECT r.role_name 
+        SELECT r.role_name, r.role_id
         FROM users u 
         INNER JOIN roles r ON u.role_id = r.role_id 
-        WHERE u.user_id = $1 AND r.role_name IN ('admin', 'superAdmin')
+        WHERE u.user_id = $1 AND r.role_id >= 6
     `;
 
     try {
@@ -395,11 +446,12 @@ const updateNewsStatus = async (id, status, userId) => {
     const permissionQuery = `
         SELECT 
             n.user_id as news_author,
-            r.role_name
+            r.role_name,
+            r.role_id
         FROM news n
         INNER JOIN users u ON u.user_id = $2
         INNER JOIN roles r ON u.role_id = r.role_id
-        WHERE n.news_id = $1 AND (n.user_id = $2 OR r.role_name IN ('admin', 'superAdmin'))
+        WHERE n.news_id = $1 AND (n.user_id = $2 OR r.role_id >= 6)
     `;
 
     try {
