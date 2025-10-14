@@ -130,7 +130,7 @@ newsRouter.get('/debug/news-structure', async (req, res) => {
         });
     }
 });
-
+// 
 newsRouter.use(logRequest);
 
 // Servicio auxiliar para manejar la imagen
@@ -142,7 +142,7 @@ const handleImageUpload = (req, res, next) => {
     next();
 };
 
-// CORREGIDO: Orden correcto de middlewares
+
 // CREATE - Crear nueva noticia con imagen
 newsRouter.post('/create', 
   userExtractor,  // PRIMERO: autenticación
