@@ -23,6 +23,7 @@ const SubcategoryPodcasts = require('./controllers/SubcategoryPodcasts')
 const podscatsRouter = require('./controllers/podscats')
 const refresRouter = require('./controllers/refresh')
 const newsRouter = require('./controllers/news')
+const contactRouter = require('./controllers/contact')
 testConnection()
 
 
@@ -53,6 +54,7 @@ app.use('/api/podcasts', podscatsRouter) // crear podcasts
 app.use('/api/refres', refresRouter);// inicio de sesion persistida
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // // Servir archivos estáticos desde la carpeta uploads
 app.use('/api/news',newsRouter)
+app.use('/api/contacts', contactRouter) // gestión de contactos
 
 
 module.exports = app
