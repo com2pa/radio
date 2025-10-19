@@ -183,6 +183,36 @@ contactRouter.patch('/:id/status', async (req, res) => {
     }
 });
 
+// PATCH - Marcar contacto como leído (endpoint específico)
+contactRouter.patch('/:id/mark-read', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Validar que el ID sea un número
+        if (isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID de contacto inválido'
+            });
+        }
+
+        console.log('Marcando contacto como leído ID:', id);
+
+        // Delegar la lógica de negocio al servicio
+        const result = await contactServices.markContactAsRead(id);
+        
+        // Responder según el resultado
+        return res.status(result.status).json(result);
+
+    } catch (error) {
+        console.error('Error en ruta de marcar como leído:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor'
+        });
+    }
+});
+
 // DELETE - Eliminar contacto
 contactRouter.delete('/:id', async (req, res) => {
     try {

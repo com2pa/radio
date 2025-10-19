@@ -1,5 +1,6 @@
 const Contact = require('../model/Contact');
 const webSocketService = require('./websocketService');
+const emailService = require('./emailService');
 
 // Obtener todos los contactos
 const getAllContacts = async () => {
@@ -161,8 +162,9 @@ const createContact = async (data) => {
             contact_phone: data.contact_phone ? data.contact_phone.trim() : null,
             contact_message: data.contact_message.trim()
         };
-
+        // guardando en la base de datos
         const savedContact = await Contact.createContact(contactData);
+        // 
 
         // Enviar notificación WebSocket a administradores
         try {
@@ -319,10 +321,37 @@ const updateContactStatus = async (id, status) => {
 
         const updatedContact = await Contact.updateContactStatus(id, status);
 
+        // Si se marca como leído (true), enviar email de confirmación al usuario
+        if (status === true && existingContact.contact_status === false) {
+            try {
+                await emailService.sendContactReadConfirmation(existingContact);
+                console.log(`✅ Email de confirmación enviado a: ${existingContact.contact_email}`);
+                
+                // Opcional: Enviar notificación a administradores
+                try {
+                    await emailService.sendAdminNotification(existingContact, 'read');
+                } catch (adminEmailError) {
+                    console.error('Error enviando notificación a administradores:', adminEmailError);
+                    // No fallar la operación si falla la notificación al admin
+                }
+                
+            } catch (emailError) {
+                console.error('Error enviando email de confirmación:', emailError);
+                // No fallar la operación si falla el email, pero registrar el error
+                return {
+                    success: true,
+                    data: updatedContact,
+                    message: `Contacto marcado como leído exitosamente, pero hubo un error enviando el email de confirmación`,
+                    status: 200,
+                    warning: 'Email no enviado'
+                };
+            }
+        }
+
         return {
             success: true,
             data: updatedContact,
-            message: `Contacto ${status ? 'activado' : 'desactivado'} exitosamente`,
+            message: `Contacto ${status ? 'marcado como leído' : 'marcado como no leído'} exitosamente`,
             status: 200
         };
 
@@ -377,6 +406,83 @@ const deleteContact = async (id) => {
     }
 };
 
+// Marcar contacto como leído (función específica)
+const markContactAsRead = async (id) => {
+    try {
+        // Validar que el ID sea un número
+        if (isNaN(id)) {
+            return {
+                success: false,
+                message: 'ID de contacto inválido',
+                status: 400
+            };
+        }
+
+        // Verificar que el contacto existe
+        const existingContact = await Contact.getContactById(id);
+        if (!existingContact) {
+            return {
+                success: false,
+                message: 'Contacto no encontrado',
+                status: 404
+            };
+        }
+
+        // Si ya está marcado como leído, no hacer nada
+        if (existingContact.contact_status === true) {
+            return {
+                success: true,
+                data: existingContact,
+                message: 'El contacto ya estaba marcado como leído',
+                status: 200
+            };
+        }
+
+        // Marcar como leído
+        const updatedContact = await Contact.updateContactStatus(id, true);
+
+        // Enviar email de confirmación al usuario
+        try {
+            await emailService.sendContactReadConfirmation(existingContact);
+            console.log(`✅ Email de confirmación enviado a: ${existingContact.contact_email}`);
+            
+            // Enviar notificación a administradores
+            try {
+                await emailService.sendAdminNotification(existingContact, 'read');
+            } catch (adminEmailError) {
+                console.error('Error enviando notificación a administradores:', adminEmailError);
+                // No fallar la operación si falla la notificación al admin
+            }
+            
+        } catch (emailError) {
+            console.error('Error enviando email de confirmación:', emailError);
+            // No fallar la operación si falla el email, pero registrar el error
+            return {
+                success: true,
+                data: updatedContact,
+                message: 'Contacto marcado como leído exitosamente, pero hubo un error enviando el email de confirmación',
+                status: 200,
+                warning: 'Email no enviado'
+            };
+        }
+
+        return {
+            success: true,
+            data: updatedContact,
+            message: 'Contacto marcado como leído exitosamente y email de confirmación enviado',
+            status: 200
+        };
+
+    } catch (error) {
+        console.error('Error en markContactAsRead:', error);
+        return {
+            success: false,
+            message: error.message,
+            status: 500
+        };
+    }
+};
+
 module.exports = {
     getAllContacts,
     getActiveContacts,
@@ -385,5 +491,6 @@ module.exports = {
     createContact,
     updateContact,
     updateContactStatus,
+    markContactAsRead,
     deleteContact
 };

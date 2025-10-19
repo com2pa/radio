@@ -10,7 +10,7 @@ const createContactTable = async () => {
             contact_email VARCHAR(100) NOT NULL,
             contact_phone VARCHAR(15),
             contact_message TEXT NOT NULL,
-            contact_status BOOLEAN DEFAULT TRUE,
+            contact_status BOOLEAN DEFAULT FALSE,
             contact_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             contact_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
