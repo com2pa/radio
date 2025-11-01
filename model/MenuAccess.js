@@ -35,46 +35,89 @@ const createMenuAccessTable = async () => {
 
 // Función para obtener el menú por rol y tipo
 const getMenuByRoleAndType = async (roleId, menuType) => {
-    const query = `
-        WITH RECURSIVE menu_tree AS (
-            SELECT 
-                id,
-                title,
-                path,
-                parent_id,
-                role_id,
-                menu_type,
-                order_index,
-                is_active,
-                1 as level
-            FROM menu_access
-            WHERE parent_id IS NULL 
-            AND role_id = $1 
-            AND menu_type = $2
-            AND is_active = true
-            
-            UNION ALL
-            
-            SELECT 
-                m.id,
-                m.title,
-                m.path,
-                m.parent_id,
-                m.role_id,
-                m.menu_type,
-                m.order_index,
-                m.is_active,
-                mt.level + 1
-            FROM menu_access m
-            INNER JOIN menu_tree mt ON m.parent_id = mt.id
-            WHERE m.is_active = true
-        )
-        SELECT * FROM menu_tree
-        ORDER BY level, order_index, title;
-    `;
+    // Para user_dashboard, devolver TODOS los items sin filtrar por role_id
+    // Para otros tipos de menú, mantener el filtro por role_id
+    const shouldFilterByRole = menuType !== 'user_dashboard';
+    
+    const query = shouldFilterByRole 
+        ? `
+            WITH RECURSIVE menu_tree AS (
+                SELECT 
+                    id,
+                    title,
+                    path,
+                    parent_id,
+                    role_id,
+                    menu_type,
+                    order_index,
+                    is_active,
+                    1 as level
+                FROM menu_access
+                WHERE parent_id IS NULL 
+                AND role_id = $1 
+                AND menu_type = $2
+                AND is_active = true
+                
+                UNION ALL
+                
+                SELECT 
+                    m.id,
+                    m.title,
+                    m.path,
+                    m.parent_id,
+                    m.role_id,
+                    m.menu_type,
+                    m.order_index,
+                    m.is_active,
+                    mt.level + 1
+                FROM menu_access m
+                INNER JOIN menu_tree mt ON m.parent_id = mt.id
+                WHERE m.is_active = true
+            )
+            SELECT * FROM menu_tree
+            ORDER BY level, order_index, title;
+        `
+        : `
+            WITH RECURSIVE menu_tree AS (
+                SELECT 
+                    id,
+                    title,
+                    path,
+                    parent_id,
+                    role_id,
+                    menu_type,
+                    order_index,
+                    is_active,
+                    1 as level
+                FROM menu_access
+                WHERE parent_id IS NULL 
+                AND menu_type = $1
+                AND is_active = true
+                
+                UNION ALL
+                
+                SELECT 
+                    m.id,
+                    m.title,
+                    m.path,
+                    m.parent_id,
+                    m.role_id,
+                    m.menu_type,
+                    m.order_index,
+                    m.is_active,
+                    mt.level + 1
+                FROM menu_access m
+                INNER JOIN menu_tree mt ON m.parent_id = mt.id
+                WHERE m.is_active = true
+            )
+            SELECT * FROM menu_tree
+            ORDER BY level, order_index, title;
+        `;
 
     try {
-        const result = await pool.query(query, [roleId, menuType]);
+        const result = shouldFilterByRole
+            ? await pool.query(query, [roleId, menuType])
+            : await pool.query(query, [menuType]);
         return result.rows;
     } catch (error) {
         console.error('Error al obtener el menú por rol y tipo:', error);

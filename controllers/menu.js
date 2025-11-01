@@ -9,9 +9,28 @@ const adminAuthorization = roleAuthorization(['admin', 'superAdmin']);
 // Crear item del menú (con tipo específico)
 MenuRouter.post('/create', userExtractor, adminAuthorization, async (req, res) => {
     try {
+        // Obtener el role_id del usuario autenticado
+        const user = req.user;
+        const roleId = menuService.roleMap[user.role];
+        
+        if (!roleId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Rol de usuario no válido'
+            });
+        }
+        
+        // Mapear menu_type del frontend al backend
+        const menuTypeMap = {
+            'user-dashboard': 'user_dashboard',
+            'admin-dashboard': 'admin_dashboard',
+            'main': 'main'
+        };
+        
         const menuData = {
             ...req.body,
-            menu_type: req.body.menu_type || 'main'
+            role_id: roleId,
+            menu_type: menuTypeMap[req.body.menu_type] || req.body.menu_type || 'main'
         };
         
         console.log('Creando item del menú:', menuData);
