@@ -42,6 +42,49 @@ io.on('connection', (socket) => {
     socket.leave('admin-room');
     console.log('👤 Administrador salió de la sala:', socket.id);
   });
+
+  // ==================== EVENTOS PARA COMENTARIOS DE PODCASTS ====================
+  
+  // Evento para unirse a la sala de un podcast específico
+  socket.on('join-podcast-room', (podcastId) => {
+    if (!podcastId) {
+      console.warn('⚠️ Intento de unirse a sala sin podcastId:', socket.id);
+      return;
+    }
+    
+    const roomName = `podcast-${podcastId}`;
+    socket.join(roomName);
+    console.log(`🎧 Cliente ${socket.id} se unió a la sala del podcast ${podcastId}`);
+    
+    // Confirmar unión a la sala
+    socket.emit('joined-podcast-room', {
+      podcast_id: podcastId,
+      room: roomName,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Evento para salir de la sala de un podcast específico
+  socket.on('leave-podcast-room', (podcastId) => {
+    if (!podcastId) {
+      return;
+    }
+    
+    const roomName = `podcast-${podcastId}`;
+    socket.leave(roomName);
+    console.log(`🎧 Cliente ${socket.id} salió de la sala del podcast ${podcastId}`);
+  });
+
+  // Evento para dejar todas las salas de podcasts
+  socket.on('leave-all-podcast-rooms', () => {
+    const rooms = Array.from(socket.rooms);
+    rooms.forEach(room => {
+      if (room.startsWith('podcast-')) {
+        socket.leave(room);
+        console.log(`🎧 Cliente ${socket.id} salió de la sala ${room}`);
+      }
+    });
+  });
 });
 
 //corriendo el servidor
