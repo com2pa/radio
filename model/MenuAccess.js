@@ -35,9 +35,9 @@ const createMenuAccessTable = async () => {
 
 // Función para obtener el menú por rol y tipo
 const getMenuByRoleAndType = async (roleId, menuType) => {
-    // Para user_dashboard, devolver TODOS los items sin filtrar por role_id
+    // Para user_dashboard y main, devolver TODOS los items sin filtrar por role_id
     // Para otros tipos de menú, mantener el filtro por role_id
-    const shouldFilterByRole = menuType !== 'user_dashboard';
+    const shouldFilterByRole = menuType !== 'user_dashboard' && menuType !== 'main';
     
     const query = shouldFilterByRole 
         ? `

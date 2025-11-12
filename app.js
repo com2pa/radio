@@ -25,6 +25,7 @@ const refresRouter = require('./controllers/refresh')
 const newsRouter = require('./controllers/news')
 const contactRouter = require('./controllers/contact')
 const comentPodcastsRouter = require('./controllers/comentPodcasts')
+const programsRouter = require('./controllers/programs')
 testConnection()
 
 
@@ -57,6 +58,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // // Serv
 app.use('/api/news',newsRouter)
 app.use('/api/contacts', contactRouter) // gestión de contactos
 app.use('/api/coment-podcasts', comentPodcastsRouter) // gestión de comentarios de podcasts
+app.use('/api/programs', programsRouter) // gestión de programas de radio
 
 
 module.exports = app
