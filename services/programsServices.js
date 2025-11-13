@@ -38,9 +38,38 @@ const createProgramService = async (programData, userId) => {
             }
         }
 
-        // Validar que hay usuarios asociados
-        if (!programData.program_users || !Array.isArray(programData.program_users) || programData.program_users.length === 0) {
-            throw new Error('Debe asociar al menos un usuario al programa');
+        // Validar que el usuario creador esté presente
+        if (!userId) {
+            throw new Error('El usuario que crea el programa es requerido');
+        }
+
+        // Validar que hay usuarios asociados al programa
+        if (!programData.program_users) {
+            throw new Error('Debe asociar al menos un usuario con rol "locutor" al programa');
+        }
+
+        // Asegurar que program_users sea un array
+        if (!Array.isArray(programData.program_users)) {
+            console.error('program_users no es un array:', typeof programData.program_users, programData.program_users);
+            throw new Error('El formato de usuarios del programa es inválido. Debe ser un array.');
+        }
+
+        // Validar que el array no esté vacío
+        if (programData.program_users.length === 0) {
+            throw new Error('Debe asociar al menos un usuario con rol "locutor" al programa');
+        }
+
+        // Validar que al menos uno de los usuarios tenga rol "locutor"
+        const hasLocutor = programData.program_users.some(
+            user => {
+                const userRole = user?.user_role || user?.role;
+                return userRole && (userRole.toLowerCase() === 'locutor');
+            }
+        );
+        
+        if (!hasLocutor) {
+            console.error('No se encontró ningún locutor en program_users:', JSON.stringify(programData.program_users));
+            throw new Error('Debe asociar al menos un usuario con rol "locutor" al programa. Los usuarios seleccionados no incluyen ningún locutor');
         }
 
         // Crear el programa (las validaciones de duración, horario y espaciado se hacen en el modelo)

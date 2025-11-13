@@ -1,5 +1,43 @@
 const { pool } = require('../db/index');
 
+// Actualizar constraint de acciones si la tabla ya existe
+const updateActionConstraint = async () => {
+    try {
+        // Verificar si la tabla existe
+        const checkTableQuery = `
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'activity_logs'
+            );
+        `;
+        const tableExists = await pool.query(checkTableQuery);
+        
+        if (tableExists.rows[0].exists) {
+            // Eliminar el constraint antiguo si existe
+            const dropConstraintQuery = `
+                ALTER TABLE activity_logs 
+                DROP CONSTRAINT IF EXISTS activity_logs_action_check;
+            `;
+            await pool.query(dropConstraintQuery);
+            
+            // Agregar el nuevo constraint con todas las acciones
+            const addConstraintQuery = `
+                ALTER TABLE activity_logs 
+                ADD CONSTRAINT activity_logs_action_check 
+                CHECK (action IN (
+                    'login', 'logout', 'login_failed', 'access_denied', 
+                    'create', 'read', 'update', 'delete', 'edit', 
+                    'system_start', 'system_stop', 'system_error'
+                ));
+            `;
+            await pool.query(addConstraintQuery);
+            console.log('✅ Constraint de acciones actualizado exitosamente');
+        }
+    } catch (error) {
+        console.error('❌ Error actualizando constraint de acciones:', error);
+    }
+};
+
 // Crear tabla de logs de actividad
 const createActivityLogTable = async () => {
     const query = `
@@ -9,7 +47,7 @@ const createActivityLogTable = async () => {
             action VARCHAR(50) NOT NULL CHECK (action IN (
                 'login', 'logout', 'login_failed', 'access_denied', 
                 'create', 'read', 'update', 'delete', 'edit', 
-                'system_start', 'system_stop'
+                'system_start', 'system_stop', 'system_error'
             )),
             entity_type VARCHAR(100) NULL,
             entity_id INTEGER NULL,
@@ -28,6 +66,9 @@ const createActivityLogTable = async () => {
     try {
         await pool.query(query);
         console.log('✅ Tabla "activity_logs" creada/verificada exitosamente');
+        
+        // Actualizar constraint si la tabla ya existía
+        await updateActionConstraint();
         
         // Crear índices para mejor performance
         await createIndexes();

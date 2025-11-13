@@ -28,6 +28,7 @@ const createProgramsTable = async () => {
             program_id SERIAL PRIMARY KEY,
             program_title VARCHAR(200) NOT NULL,
             program_description TEXT,
+            program_image VARCHAR(255) CHECK (program_image IS NULL OR program_image ~ '\.(jpg|jpeg|png|webp)$'),
             program_type VARCHAR(20) NOT NULL CHECK (program_type IN ('tiktok_live', 'instagram_live', 'podcast')),
             tiktok_live_url VARCHAR(500),
             instagram_live_url VARCHAR(500),
@@ -75,9 +76,44 @@ const createProgramsTable = async () => {
     try {
         await pool.query(query);
         console.log('✅ Tabla "programs" y "program_users" creadas/verificadas exitosamente');
+        
+        // Migración: Agregar columna program_image si no existe
+        await addProgramImageColumnIfNotExists();
     } catch (error) {
         console.error('❌ Error creando tablas programs:', error);
         throw error;
+    }
+};
+
+// Función de migración para agregar columna program_image si no existe
+const addProgramImageColumnIfNotExists = async () => {
+    try {
+        // Verificar si la columna existe
+        const checkColumnQuery = `
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'programs' 
+            AND column_name = 'program_image';
+        `;
+        
+        const result = await pool.query(checkColumnQuery);
+        
+        // Si la columna no existe, agregarla
+        if (result.rows.length === 0) {
+            const addColumnQuery = `
+                ALTER TABLE programs 
+                ADD COLUMN program_image VARCHAR(255) 
+                CHECK (program_image IS NULL OR program_image ~ '\.(jpg|jpeg|png|webp)$');
+            `;
+            
+            await pool.query(addColumnQuery);
+            console.log('✅ Columna "program_image" agregada exitosamente a la tabla "programs"');
+        } else {
+            console.log('✅ Columna "program_image" ya existe en la tabla "programs"');
+        }
+    } catch (error) {
+        console.error('❌ Error agregando columna program_image:', error);
+        // No lanzar error para no bloquear la inicialización si la columna ya existe o hay otro problema
     }
 };
 
@@ -345,6 +381,7 @@ const createProgram = async (programData, userId) => {
     const {
         program_title,
         program_description,
+        program_image,
         program_type,
         tiktok_live_url,
         instagram_live_url,
@@ -406,7 +443,8 @@ const createProgram = async (programData, userId) => {
         const insertProgramQuery = `
             INSERT INTO programs (
                 program_title, 
-                program_description, 
+                program_description,
+                program_image,
                 program_type,
                 tiktok_live_url,
                 instagram_live_url,
@@ -416,13 +454,14 @@ const createProgram = async (programData, userId) => {
                 program_status,
                 user_id
             ) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
             RETURNING *
         `;
         
         const programValues = [
             program_title,
             program_description || null,
+            program_image || null,
             program_type,
             tiktok_live_url || null,
             instagram_live_url || null,
@@ -673,6 +712,7 @@ const updateProgram = async (id, programData, userId) => {
     const {
         program_title,
         program_description,
+        program_image,
         program_type,
         tiktok_live_url,
         instagram_live_url,
@@ -688,24 +728,55 @@ const updateProgram = async (id, programData, userId) => {
     
     // Determinar valores nuevos o mantener los actuales
     const newType = program_type || currentProgram.program_type;
-    const newTiktokUrl = tiktok_live_url !== undefined ? tiktok_live_url : currentProgram.tiktok_live_url;
-    const newInstagramUrl = instagram_live_url !== undefined ? instagram_live_url : currentProgram.instagram_live_url;
-    const newPodcastId = podcast_id !== undefined ? podcast_id : currentProgram.podcast_id;
-    const newScheduledDate = scheduled_date || currentProgram.scheduled_date;
-    const newDuration = duration_minutes || currentProgram.duration_minutes;
+    
+    // Si el tipo cambió, limpiar URLs/podcast_id que no corresponden
+    let newTiktokUrl = tiktok_live_url !== undefined ? tiktok_live_url : currentProgram.tiktok_live_url;
+    let newInstagramUrl = instagram_live_url !== undefined ? instagram_live_url : currentProgram.instagram_live_url;
+    let newPodcastId = podcast_id !== undefined ? podcast_id : currentProgram.podcast_id;
+    
+    // Si el tipo cambió, limpiar valores que no corresponden al nuevo tipo
+    if (program_type && program_type !== currentProgram.program_type) {
+        if (program_type === 'tiktok_live') {
+            newInstagramUrl = null;
+            newPodcastId = null;
+        } else if (program_type === 'instagram_live') {
+            newTiktokUrl = null;
+            newPodcastId = null;
+        } else if (program_type === 'podcast') {
+            newTiktokUrl = null;
+            newInstagramUrl = null;
+        }
+    }
+    
+    // Verificar si realmente se está actualizando la fecha (no undefined, null o string vacío)
+    const isUpdatingScheduledDate = scheduled_date !== undefined && 
+                                    scheduled_date !== null && 
+                                    scheduled_date !== '';
+    
+    // Verificar si realmente se está actualizando la duración
+    const isUpdatingDuration = duration_minutes !== undefined && 
+                               duration_minutes !== null;
+    
+    // Usar el nuevo valor solo si está definido y no es null/vacío
+    const newScheduledDate = isUpdatingScheduledDate 
+        ? scheduled_date 
+        : currentProgram.scheduled_date;
+    const newDuration = isUpdatingDuration 
+        ? duration_minutes 
+        : currentProgram.duration_minutes;
 
-    // ✅ VALIDACIÓN 1: Duración del programa (1-2 horas)
-    if (duration_minutes !== undefined) {
+    // ✅ VALIDACIÓN 1: Duración del programa (1-2 horas) - solo si se está actualizando
+    if (isUpdatingDuration) {
         validateDuration(duration_minutes);
     }
 
     // ✅ VALIDACIÓN 2: Horario permitido (5:00 AM - 8:00 PM) - solo si cambió fecha o duración
-    if (scheduled_date !== undefined || duration_minutes !== undefined) {
+    if (isUpdatingScheduledDate || isUpdatingDuration) {
         validateProgramSchedule(newScheduledDate, newDuration);
     }
 
     // ✅ VALIDACIÓN 3: Espacio mínimo de 30 minutos entre programas (solo si cambió fecha o duración)
-    if (scheduled_date !== undefined || duration_minutes !== undefined) {
+    if (isUpdatingScheduledDate || isUpdatingDuration) {
         await validateProgramSpacing(newScheduledDate, newDuration, id);
     }
 
@@ -744,35 +815,86 @@ const updateProgram = async (id, programData, userId) => {
     try {
         await client.query('BEGIN');
         
+        // Construir query dinámicamente solo para campos que se están actualizando
+        const updateFields = [];
+        const values = [];
+        let paramCount = 0;
+        
+        if (program_title !== undefined) {
+            paramCount++;
+            updateFields.push(`program_title = $${paramCount}`);
+            values.push(program_title);
+        }
+        
+        if (program_description !== undefined) {
+            paramCount++;
+            updateFields.push(`program_description = $${paramCount}`);
+            values.push(program_description || null);
+        }
+        
+        if (program_image !== undefined) {
+            paramCount++;
+            updateFields.push(`program_image = $${paramCount}`);
+            values.push(program_image || null);
+        }
+        
+        if (program_type !== undefined) {
+            paramCount++;
+            updateFields.push(`program_type = $${paramCount}`);
+            values.push(program_type);
+        }
+        
+        if (tiktok_live_url !== undefined || program_type !== undefined) {
+            paramCount++;
+            updateFields.push(`tiktok_live_url = $${paramCount}`);
+            values.push(newTiktokUrl || null);
+        }
+        
+        if (instagram_live_url !== undefined || program_type !== undefined) {
+            paramCount++;
+            updateFields.push(`instagram_live_url = $${paramCount}`);
+            values.push(newInstagramUrl || null);
+        }
+        
+        if (podcast_id !== undefined || program_type !== undefined) {
+            paramCount++;
+            updateFields.push(`podcast_id = $${paramCount}`);
+            values.push(newPodcastId || null);
+        }
+        
+        // Actualizar scheduled_date solo si realmente se está actualizando
+        if (isUpdatingScheduledDate) {
+            paramCount++;
+            updateFields.push(`scheduled_date = $${paramCount}`);
+            values.push(scheduled_date);
+        }
+        
+        // Actualizar duration_minutes solo si realmente se está actualizando
+        if (isUpdatingDuration) {
+            paramCount++;
+            updateFields.push(`duration_minutes = $${paramCount}`);
+            values.push(duration_minutes);
+        }
+        
+        if (program_status !== undefined) {
+            paramCount++;
+            updateFields.push(`program_status = $${paramCount}`);
+            values.push(program_status);
+        }
+        
+        // Siempre actualizar program_updated_at
+        updateFields.push(`program_updated_at = CURRENT_TIMESTAMP`);
+        
+        // Agregar WHERE clause
+        paramCount++;
+        values.push(id);
+        
         const updateQuery = `
             UPDATE programs 
-            SET 
-                program_title = COALESCE($1, program_title),
-                program_description = COALESCE($2, program_description),
-                program_type = COALESCE($3, program_type),
-                tiktok_live_url = $4,
-                instagram_live_url = $5,
-                podcast_id = $6,
-                scheduled_date = COALESCE($7, scheduled_date),
-                duration_minutes = COALESCE($8, duration_minutes),
-                program_status = COALESCE($9, program_status),
-                program_updated_at = CURRENT_TIMESTAMP
-            WHERE program_id = $10
+            SET ${updateFields.join(', ')}
+            WHERE program_id = $${paramCount}
             RETURNING *
         `;
-        
-        const values = [
-            program_title,
-            program_description,
-            program_type,
-            newTiktokUrl,
-            newInstagramUrl,
-            newPodcastId,
-            scheduled_date,
-            duration_minutes,
-            program_status,
-            id
-        ];
 
         const result = await client.query(updateQuery, values);
         if (result.rows.length === 0) {

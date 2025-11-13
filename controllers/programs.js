@@ -3,6 +3,50 @@ const { userExtractor, roleAuthorization } = require('../middleware/auth');
 const programsServices = require('../services/programsServices');
 const systemLogger = require('../help/system/systemLogger');
 const { activityLogger } = require('../middleware/activityLogger');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configuración de multer para subida de imágenes
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '..', 'uploads', 'programs');
+    // Crear directorio si no existe
+    fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'program-' + uniqueSuffix + ext);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de archivo no soportado. Solo JPG/PNG permitidos'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
+
+// Servicio auxiliar para manejar la imagen
+const handleImageUpload = (req, res, next) => {
+    if (req.file) {
+        // Guardar solo el nombre del archivo en la base de datos
+        req.body.program_image = req.file.filename;
+    }
+    next();
+};
 
 // Middleware para log de peticiones
 const logRequest = (req, res, next) => {
@@ -186,10 +230,53 @@ programsRouter.get('/:id', async (req, res) => {
 });
 
 // POST - Crear nuevo programa (requiere autenticación y rol admin/editor)
-programsRouter.post('/create', userExtractor, roleAuthorization(['admin', 'superAdmin', 'editor']), async (req, res) => {
+programsRouter.post('/create', 
+    userExtractor, 
+    roleAuthorization(['admin', 'superAdmin', 'editor']), 
+    upload.single('program_image'), 
+    handleImageUpload,
+    async (req, res) => {
     try {
         const userId = req.user._id;
         const programData = req.body;
+        const file = req.file;
+        
+        // Si se subió una imagen pero falla la validación, eliminar el archivo
+        const cleanupFile = () => {
+            if (file) {
+                try {
+                    fs.unlinkSync(file.path);
+                } catch (err) {
+                    console.error('Error eliminando archivo:', err);
+                }
+            }
+        };
+        
+        // Parsear program_users si viene como string JSON (cuando se envía con FormData)
+        if (programData.program_users && typeof programData.program_users === 'string') {
+            try {
+                programData.program_users = JSON.parse(programData.program_users);
+            } catch (error) {
+                console.error('Error parseando program_users:', error);
+                cleanupFile();
+                return res.status(400).json({
+                    success: false,
+                    message: 'Error al procesar los usuarios del programa. Formato inválido.',
+                    data: null
+                });
+            }
+        }
+        
+        // Convertir duration_minutes a número si viene como string
+        if (programData.duration_minutes && typeof programData.duration_minutes === 'string') {
+            programData.duration_minutes = parseInt(programData.duration_minutes);
+        }
+        
+        // Convertir podcast_id a número si viene como string
+        if (programData.podcast_id && typeof programData.podcast_id === 'string') {
+            programData.podcast_id = parseInt(programData.podcast_id);
+        }
+        
         const result = await programsServices.createProgramService(programData, userId);
         
         if (result.success) {
@@ -203,10 +290,14 @@ programsRouter.post('/create', userExtractor, roleAuthorization(['admin', 'super
                 { 
                     title: programData.program_title,
                     type: programData.program_type,
-                    scheduled_date: programData.scheduled_date
+                    scheduled_date: programData.scheduled_date,
+                    has_image: !!file
                 }
             );
         } else {
+            // Si falla la creación, eliminar la imagen subida
+            cleanupFile();
+            
             // ✅ LOG: Registrar error en creación
             await systemLogger.logSystemError(
                 userId, 
@@ -219,6 +310,15 @@ programsRouter.post('/create', userExtractor, roleAuthorization(['admin', 'super
         res.status(result.success ? 201 : 400).json(result);
     } catch (error) {
         console.error('Error creando programa:', error);
+        
+        // Eliminar archivo si existe
+        if (req.file) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (err) {
+                console.error('Error eliminando archivo:', err);
+            }
+        }
         
         // ✅ LOG: Registrar error crítico
         await systemLogger.logSystemError(
@@ -237,14 +337,116 @@ programsRouter.post('/create', userExtractor, roleAuthorization(['admin', 'super
 });
 
 // PUT - Actualizar programa (requiere autenticación y rol admin/editor)
-programsRouter.put('/:id', userExtractor, roleAuthorization(['admin', 'superAdmin', 'editor']), async (req, res) => {
+programsRouter.put('/:id', 
+    userExtractor, 
+    roleAuthorization(['admin', 'superAdmin', 'editor']), 
+    upload.single('program_image'), 
+    handleImageUpload,
+    async (req, res) => {
     try {
         const programId = req.params.id;
         const userId = req.user._id;
         const programData = req.body;
+        const file = req.file;
+        
+        // Si se subió una nueva imagen, obtener la imagen anterior para eliminarla
+        let oldImagePath = null;
+        if (file) {
+            try {
+                const currentProgram = await programsServices.getProgramByIdService(programId);
+                if (currentProgram.success && currentProgram.data?.program_image) {
+                    oldImagePath = path.join(__dirname, '..', 'uploads', 'programs', currentProgram.data.program_image);
+                }
+            } catch (err) {
+                console.error('Error obteniendo programa actual:', err);
+            }
+        }
+        
+        // Parsear program_users si viene como string JSON (cuando se envía con FormData)
+        if (programData.program_users && typeof programData.program_users === 'string') {
+            try {
+                programData.program_users = JSON.parse(programData.program_users);
+            } catch (error) {
+                console.error('Error parseando program_users:', error);
+                // Si falla la actualización, eliminar la nueva imagen subida
+                if (file) {
+                    try {
+                        fs.unlinkSync(file.path);
+                    } catch (err) {
+                        console.error('Error eliminando archivo:', err);
+                    }
+                }
+                return res.status(400).json({
+                    success: false,
+                    message: 'Error al procesar los usuarios del programa. Formato inválido.',
+                    data: null
+                });
+            }
+        }
+        
+        // Convertir duration_minutes a número si viene como string
+        if (programData.duration_minutes !== undefined && programData.duration_minutes !== null) {
+            if (typeof programData.duration_minutes === 'string') {
+                programData.duration_minutes = programData.duration_minutes === '' ? null : parseInt(programData.duration_minutes);
+            }
+        }
+        
+        // Convertir podcast_id a número si viene como string
+        if (programData.podcast_id !== undefined && programData.podcast_id !== null) {
+            if (typeof programData.podcast_id === 'string') {
+                programData.podcast_id = programData.podcast_id === '' ? null : parseInt(programData.podcast_id);
+            }
+        }
+        
+        // Limpiar strings vacíos y convertirlos a null
+        if (programData.tiktok_live_url === '') programData.tiktok_live_url = null;
+        if (programData.instagram_live_url === '') programData.instagram_live_url = null;
+        if (programData.program_description === '') programData.program_description = null;
+        
+        // Validar y formatear scheduled_date si viene como string
+        if (programData.scheduled_date !== undefined && programData.scheduled_date !== null && programData.scheduled_date !== '') {
+            // Si viene como string, asegurarse de que esté en formato ISO
+            if (typeof programData.scheduled_date === 'string') {
+                try {
+                    const date = new Date(programData.scheduled_date);
+                    if (isNaN(date.getTime())) {
+                        console.error('❌ Fecha inválida recibida:', programData.scheduled_date);
+                        programData.scheduled_date = undefined; // No actualizar si es inválida
+                    } else {
+                        programData.scheduled_date = date.toISOString();
+                    }
+                } catch (error) {
+                    console.error('❌ Error procesando scheduled_date:', error);
+                    programData.scheduled_date = undefined;
+                }
+            }
+        } else if (programData.scheduled_date === '') {
+            // Si viene como string vacío, no actualizar
+            programData.scheduled_date = undefined;
+        }
+        
+        console.log('📝 Datos recibidos para actualizar programa:', {
+            programId,
+            program_title: programData.program_title,
+            program_type: programData.program_type,
+            scheduled_date: programData.scheduled_date,
+            scheduled_date_type: typeof programData.scheduled_date,
+            has_image: !!file,
+            program_users_count: programData.program_users?.length || 0
+        });
+        
         const result = await programsServices.updateProgramService(programId, programData, userId);
         
         if (result.success) {
+            // Si se actualizó correctamente y hay una imagen anterior, eliminarla
+            if (oldImagePath && fs.existsSync(oldImagePath)) {
+                try {
+                    fs.unlinkSync(oldImagePath);
+                } catch (err) {
+                    console.error('Error eliminando imagen anterior:', err);
+                }
+            }
+            
             // ✅ LOG: Registrar actualización exitosa
             await systemLogger.logCrudAction(
                 req.user, 
@@ -253,10 +455,20 @@ programsRouter.put('/:id', userExtractor, roleAuthorization(['admin', 'superAdmi
                 programId, 
                 req, 
                 { 
-                    updated_fields: Object.keys(programData)
+                    updated_fields: Object.keys(programData),
+                    image_updated: !!file
                 }
             );
         } else {
+            // Si falla la actualización, eliminar la nueva imagen subida
+            if (file) {
+                try {
+                    fs.unlinkSync(file.path);
+                } catch (err) {
+                    console.error('Error eliminando archivo:', err);
+                }
+            }
+            
             // ✅ LOG: Registrar error en actualización
             await systemLogger.logSystemError(
                 userId, 
@@ -269,6 +481,15 @@ programsRouter.put('/:id', userExtractor, roleAuthorization(['admin', 'superAdmi
         res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
         console.error('Error actualizando programa:', error);
+        
+        // Eliminar archivo si existe
+        if (req.file) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (err) {
+                console.error('Error eliminando archivo:', err);
+            }
+        }
         
         // ✅ LOG: Registrar error crítico
         await systemLogger.logSystemError(
@@ -333,7 +554,7 @@ programsRouter.delete('/:id', userExtractor, roleAuthorization(['admin', 'superA
 });
 
 // POST - Agregar usuarios a un programa (requiere autenticación y rol admin/editor)
-programsRouter.post('/:id/users', userExtractor, roleAuthorization(['admin', 'superAdmin', 'editor']), async (req, res) => {
+programsRouter.post('/:id/users', userExtractor, roleAuthorization(['admin', 'superAdmin', ]), async (req, res) => {
     try {
         const programId = req.params.id;
         const userId = req.user._id;
@@ -374,7 +595,7 @@ programsRouter.post('/:id/users', userExtractor, roleAuthorization(['admin', 'su
 });
 
 // DELETE - Remover usuarios de un programa (requiere autenticación y rol admin/editor)
-programsRouter.delete('/:id/users', userExtractor, roleAuthorization(['admin', 'superAdmin', 'editor']), async (req, res) => {
+programsRouter.delete('/:id/users', userExtractor, roleAuthorization(['admin', 'superAdmin', ]), async (req, res) => {
     try {
         const programId = req.params.id;
         const userId = req.user._id;
@@ -403,6 +624,36 @@ programsRouter.delete('/:id/users', userExtractor, roleAuthorization(['admin', '
             success: false, 
             error: 'Error removiendo usuarios del programa',
             details: error.message 
+        });
+    }
+});
+
+// GET - Servir imágenes estáticas de programas
+programsRouter.get('/images/:filename', (req, res) => {
+    try {
+        const { filename } = req.params;
+        const imagePath = path.join(__dirname, '..', 'uploads', 'programs', filename);
+        
+        // Verificar que el archivo existe
+        if (!fs.existsSync(imagePath)) {
+            return res.status(404).json({
+                success: false,
+                message: 'Imagen no encontrada'
+            });
+        }
+
+        // Determinar el tipo de contenido
+        const ext = path.extname(filename).toLowerCase();
+        let contentType = 'image/jpeg';
+        if (ext === '.png') contentType = 'image/png';
+        
+        res.setHeader('Content-Type', contentType);
+        res.sendFile(imagePath);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error al cargar la imagen',
+            error: error.message
         });
     }
 });
