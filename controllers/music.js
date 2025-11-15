@@ -69,15 +69,15 @@ musicRouter.get('/debug-token', async (req, res) => {
     }
 });
 
-musicRouter.get('/callback', (req, res) => {
-    console.log('✅ Callback de Spotify accedido - Redirect URI válida');
-    res.json({ 
-        success: true,
-        message: 'Callback de Spotify configurado correctamente',
-        timestamp: new Date().toISOString(),
-        note: 'Client Credentials Flow no usa OAuth redirects realmente'
-    });
-});
+// musicRouter.get('/callback', (req, res) => {
+//     console.log('✅ Callback de Spotify accedido - Redirect URI válida');
+//     res.json({ 
+//         success: true,
+//         message: 'Callback de Spotify configurado correctamente',
+//         timestamp: new Date().toISOString(),
+//         note: 'Client Credentials Flow no usa OAuth redirects realmente'
+//     });
+// });
 
 // GET - Buscar en Spotify (público)
 musicRouter.get('/search', async (req, res) => {
@@ -435,6 +435,199 @@ musicRouter.get('/test-auth-manual', async (req, res) => {
                 client_secret_length: process.env.SPOTIFY_CLIENT_SECRET?.length
             },
             solution: 'Verifica que Client ID y Client Secret sean correctos en Spotify Dashboard'
+        });
+    }
+});
+
+
+
+// Iniciar flujo de autenticación OAuth
+musicRouter.get('/auth/login', (req, res) => {
+    // Si ya viene con code, redirigir al callback
+    if (req.query.code) {
+        return res.redirect(`/api/music/auth/callback?code=${req.query.code}`);
+    }
+    
+    // Scopes más completos para Web Playback SDK
+    const scopes = [
+        'streaming',                     // Control playback
+        'user-read-email',              // Ver email
+        'user-read-private',            // Ver información privada
+        'user-read-playback-state',     // Ver estado de reproducción
+        'user-modify-playback-state',   // Controlar reproducción
+        'user-read-currently-playing',  // Ver qué se está reproduciendo
+        'app-remote-control',           // Control remoto
+        'user-read-recently-played'     // Ver recientemente reproducido
+    ].join(' ');
+    
+    const redirectUri = process.env.SPOTIFY_REDIRECT_URI;
+    
+    console.log('🔗 Generando URL de autorización con scopes:', scopes);
+    
+    const authUrl = 'https://accounts.spotify.com/authorize?' + 
+        new URLSearchParams({
+            response_type: 'code',
+            client_id: process.env.SPOTIFY_CLIENT_ID,
+            scope: scopes,
+            redirect_uri: redirectUri,
+            show_dialog: true  // ← Forzar mostrar diálogo de autorización
+        }).toString();
+    
+    console.log('📍 Redirigiendo a:', authUrl);
+    res.redirect(authUrl);
+});
+// Callback para intercambiar code por token
+musicRouter.get('/auth/callback', async (req, res) => {
+    const { code, error, state } = req.query;
+    
+    console.log('🔍 DEBUG Callback recibido:', {
+        hasCode: !!code,
+        hasError: !!error,
+        codeLength: code?.length,
+        error: error,
+        state: state
+    });
+    
+    // Si hay error de Spotify
+    if (error) {
+        return res.status(400).json({
+            success: false,
+            error: `Error de autorización de Spotify: ${error}`,
+            description: 'El usuario denegó el acceso o hubo un error en la autorización'
+        });
+    }
+    
+    // Si no hay code
+    if (!code) {
+        return res.status(400).json({
+            success: false,
+            error: 'No se recibió código de autorización',
+            description: 'Spotify no devolvió un código de autorización válido'
+        });
+    }
+    
+    try {
+        console.log('🔄 Intercambiando code por token de acceso...');
+        
+        const tokenResponse = await axios.post('https://accounts.spotify.com/api/token', 
+            new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
+                client_id: process.env.SPOTIFY_CLIENT_ID,
+                client_secret: process.env.SPOTIFY_CLIENT_SECRET,
+            }).toString(),
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                timeout: 10000
+            }
+        );
+        
+        const { access_token, refresh_token, expires_in, token_type } = tokenResponse.data;
+        
+        console.log('✅ Token de usuario obtenido exitosamente:', {
+            token_type: token_type,
+            expires_in: expires_in,
+            access_token_length: access_token?.length,
+            refresh_token_length: refresh_token?.length
+        });
+        
+        // Devolver token al frontend
+        res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Spotify Auth Success</title>
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                    .success { color: green; }
+                    .token { background: #f5f5f5; padding: 10px; margin: 10px; border-radius: 5px; word-break: break-all; }
+                </style>
+            </head>
+            <body>
+                <h2 class="success">✅ Autenticación Exitosa</h2>
+                <p>Token obtenido correctamente. Puedes cerrar esta ventana.</p>
+                
+                <div class="token">
+                    <strong>Token:</strong> ${access_token.substring(0, 50)}...
+                </div>
+                
+                <script>
+                    // Enviar token a la ventana padre
+                    window.onload = function() {
+                        if (window.opener) {
+                            window.opener.postMessage({
+                                type: 'SPOTIFY_AUTH_SUCCESS',
+                                access_token: '${access_token}',
+                                expires_in: ${expires_in},
+                                refresh_token: '${refresh_token}',
+                                token_type: '${token_type}'
+                            }, '*');
+                            console.log('✅ Token enviado a ventana padre');
+                        } else {
+                            console.log('ℹ️ No se encontró ventana padre');
+                        }
+                        
+                        // Cerrar ventana después de 3 segundos
+                        setTimeout(() => {
+                            window.close();
+                        }, 3000);
+                    };
+                </script>
+            </body>
+            </html>
+        `);
+        
+    } catch (error) {
+        console.error('❌ Error en callback:', {
+            message: error.message,
+            responseStatus: error.response?.status,
+            responseData: error.response?.data,
+            configData: error.config?.data
+        });
+        
+        res.status(400).send(`
+            <html>
+            <body>
+                <h2 style="color: red;">❌ Error de Autenticación</h2>
+                <p>Error: ${error.response?.data?.error || error.message}</p>
+                <p>Descripción: ${error.response?.data?.error_description || 'Error desconocido'}</p>
+                <button onclick="window.close()">Cerrar</button>
+            </body>
+            </html>
+        `);
+    }
+});
+
+// Agrega este endpoint temporal para testing
+musicRouter.get('/auth/test-token', async (req, res) => {
+    try {
+        // Usar Client Credentials para obtener un token básico
+        const authString = Buffer.from(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`).toString('base64');
+        
+        const response = await axios.post('https://accounts.spotify.com/api/token', 
+            'grant_type=client_credentials',
+            {
+                headers: {
+                    'Authorization': `Basic ${authString}`,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        );
+
+        res.json({
+            success: true,
+            access_token: response.data.access_token,
+            token_type: response.data.token_type,
+            expires_in: response.data.expires_in,
+            note: 'Este es un token de Client Credentials (solo para API, no para playback)'
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            error: error.response?.data || error.message
         });
     }
 });
