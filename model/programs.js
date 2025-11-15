@@ -252,14 +252,25 @@ const validateProgramUsers = async (programUsers = []) => {
 
 // Función auxiliar para calcular fecha de fin del programa
 const calculateEndDate = (scheduledDate, durationMinutes) => {
-    const start = new Date(scheduledDate);
+    // Si scheduledDate ya es un Date, usarlo directamente
+    const start = scheduledDate instanceof Date ? scheduledDate : new Date(scheduledDate);
     return new Date(start.getTime() + durationMinutes * 60000);
 };
 
 // Validar horario permitido para programas (5:00 AM - 8:00 PM)
 const validateProgramSchedule = (scheduledDate, durationMinutes) => {
-    const programStart = new Date(scheduledDate);
-    const programEnd = calculateEndDate(scheduledDate, durationMinutes);
+    // Si scheduledDate es un string en formato YYYY-MM-DDTHH:mm:ss, parsearlo correctamente
+    let programStart;
+    if (typeof scheduledDate === 'string' && scheduledDate.includes('T') && !scheduledDate.includes('Z') && !scheduledDate.includes('+')) {
+        // Formato sin zona horaria: interpretar como hora local
+        const [datePart, timePart] = scheduledDate.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hours, minutes, seconds = 0] = timePart.split(':').map(Number);
+        programStart = new Date(year, month - 1, day, hours, minutes, seconds || 0);
+    } else {
+        programStart = new Date(scheduledDate);
+    }
+    const programEnd = calculateEndDate(programStart, durationMinutes);
     
     // Obtener la hora del inicio y fin del programa
     const startHour = programStart.getHours();
@@ -560,7 +571,24 @@ const getAllPrograms = async (filters = {}) => {
 
     try {
         const result = await pool.query(query, values);
-        return result.rows;
+        // Formatear scheduled_date para evitar problemas de zona horaria
+        // PostgreSQL devuelve TIMESTAMP como ISO string con Z, necesitamos convertirlo a hora local
+        const formattedRows = result.rows.map(row => {
+            if (row.scheduled_date) {
+                // Si viene como string ISO con Z, parsearlo y reconstruirlo sin zona horaria
+                const date = new Date(row.scheduled_date);
+                // Reconstruir en formato YYYY-MM-DDTHH:mm:ss usando la hora LOCAL
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                row.scheduled_date = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+            }
+            return row;
+        });
+        return formattedRows;
     } catch (error) {
         console.error('❌ Error obteniendo programas:', error);
         throw error;
@@ -593,6 +621,18 @@ const getProgramById = async (id) => {
         }
         
         const program = result.rows[0];
+        
+        // Formatear scheduled_date para evitar problemas de zona horaria
+        if (program.scheduled_date) {
+            const date = new Date(program.scheduled_date);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            program.scheduled_date = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+        }
         
         // Obtener usuarios asociados al programa
         const programUsers = await getProgramUsers(id);

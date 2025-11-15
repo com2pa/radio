@@ -277,6 +277,95 @@ programsRouter.post('/create',
             programData.podcast_id = parseInt(programData.podcast_id);
         }
         
+        // Validar y formatear scheduled_date si viene como string
+        if (programData.scheduled_date && typeof programData.scheduled_date === 'string') {
+            try {
+                // Guardar el valor original recibido
+                const fechaRecibida = programData.scheduled_date;
+                
+                // Si viene en formato YYYY-MM-DDTHH:mm:ss (sin zona horaria), usar directamente
+                // NO convertir a UTC porque eso cambia la hora
+                if (fechaRecibida.includes('T') && !fechaRecibida.includes('Z') && !fechaRecibida.includes('+') && !fechaRecibida.includes('-', 10)) {
+                    // Formato sin zona horaria: YYYY-MM-DDTHH:mm:ss
+                    // Validar que sea una fecha válida
+                    const [datePart, timePart] = fechaRecibida.split('T');
+                    const [year, month, day] = datePart.split('-').map(Number);
+                    const timeComponents = timePart.split(':');
+                    const [hours, minutes, seconds = 0] = timeComponents.map(Number);
+                    
+                    // Validar valores
+                    if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+                        throw new Error('Fecha inválida: valores numéricos incorrectos');
+                    }
+                    
+                    // Crear fecha para validación (en hora local del servidor)
+                    const dateValidation = new Date(year, month - 1, day, hours, minutes, seconds || 0);
+                    
+                    if (isNaN(dateValidation.getTime())) {
+                        console.error('❌ Fecha inválida recibida al crear:', fechaRecibida);
+                        return res.status(400).json({
+                            success: false,
+                            message: 'La fecha y hora programada no es válida',
+                            data: null
+                        });
+                    }
+                    
+                    // IMPORTANTE: Usar la fecha recibida directamente, NO convertir a ISO (que convierte a UTC)
+                    // PostgreSQL TIMESTAMP sin timezone almacena la fecha tal cual
+                    // Formato: YYYY-MM-DDTHH:mm:ss (sin Z, sin offset)
+                    programData.scheduled_date = fechaRecibida;
+                    
+                    console.log('📅 Fecha procesada al crear (SIN conversión UTC):', {
+                        recibida: fechaRecibida,
+                        usadaDirectamente: programData.scheduled_date,
+                        validacion: {
+                            año: dateValidation.getFullYear(),
+                            mes: dateValidation.getMonth() + 1,
+                            dia: dateValidation.getDate(),
+                            hora: dateValidation.getHours(),
+                            minuto: dateValidation.getMinutes(),
+                            segundo: dateValidation.getSeconds()
+                        },
+                        fechaLocal: dateValidation.toLocaleString('es-ES', { timeZone: 'America/Caracas' })
+                    });
+                } else {
+                    // Si viene con zona horaria o formato ISO completo, parsear y reconstruir sin zona horaria
+                    const date = new Date(fechaRecibida);
+                    if (isNaN(date.getTime())) {
+                        console.error('❌ Fecha inválida recibida al crear:', fechaRecibida);
+                        return res.status(400).json({
+                            success: false,
+                            message: 'La fecha y hora programada no es válida',
+                            data: null
+                        });
+                    }
+                    
+                    // Reconstruir en formato YYYY-MM-DDTHH:mm:ss usando la hora LOCAL del servidor
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                    
+                    programData.scheduled_date = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+                    
+                    console.log('📅 Fecha procesada al crear (con zona horaria, reconstruida):', {
+                        recibida: fechaRecibida,
+                        procesada: programData.scheduled_date,
+                        fechaLocal: date.toLocaleString('es-ES', { timeZone: 'America/Caracas' })
+                    });
+                }
+            } catch (error) {
+                console.error('❌ Error procesando scheduled_date al crear:', error);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Error al procesar la fecha programada: ' + error.message,
+                    data: null
+                });
+            }
+        }
+        
         const result = await programsServices.createProgramService(programData, userId);
         
         if (result.success) {
