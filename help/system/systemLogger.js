@@ -65,16 +65,23 @@ const systemLogger = {
       if (!validActions.includes(action)) {
         throw new Error(`Acción CRUD no válida: ${action}`);
       }
+      
+      // Obtener user_id de diferentes formas posibles
+      const userId = user?.id || user?._id || user?.user_id || null;
+      
       await ActivityLog.createActivityLog({
-        user_id: user?.id,  // Cambiado de _id a id y user a user_id
+        user_id: userId,
         action: `${action}`,
-        entity_type: entityType,  // Cambiado a snake_case
-        entity_id: entityId,  // Cambiado a snake_case
-        ip_address: req.ip,  // Cambiado a snake_case
-        user_agent: req.get('User-Agent'),  // Cambiado a snake_case
+        entity_type: entityType,
+        entity_id: entityId,
+        ip_address: req?.ip || 'unknown',
+        user_agent: req?.get('User-Agent') || null,
         metadata: {
-          method: req.method,
-          path: req.path,
+          method: req?.method || 'UNKNOWN',
+          path: req?.path || 'unknown',
+          // Incluir información del usuario en metadata si está disponible
+          user_email: user?.email || user?.user_email || null,
+          user_name: user?.name || user?.user_name || null,
           ...metadata,
           timestamp: new Date(),
         },
@@ -91,25 +98,33 @@ const systemLogger = {
    * @param {String} errorMessage - Mensaje de error
    * @param {Object} error - Objeto Error completo
    */
-  logSystemError: async (userId, req, description, error) => {
+  logSystemError: async (userId, req, description, error = null) => {
     try {
       await ActivityLog.createActivityLog({
-        user_id: userId,
+        user_id: userId || null,
         action: 'system_error',
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent'),
+        ip_address: req?.ip || 'unknown',
+        user_agent: req?.get('User-Agent') || null,
         metadata: {
-          method: req.method,
-          path: req.path,
-          description,
-          error_message: error.message,
-          error_stack: error.stack,
+          method: req?.method || 'UNKNOWN',
+          path: req?.path || 'unknown',
+          description: description || 'Error del sistema',
+          error_message: error?.message || description || 'Error desconocido',
+          error_stack: error?.stack || null,
           timestamp: new Date(),
         },
       });
     } catch (logError) {
       console.error('Error registrando error del sistema:', logError);
     }
+  },
+  
+  /**
+   * Método simple para logging de información
+   * @param {String} message - Mensaje a registrar
+   */
+  info: (message) => {
+    console.log(`ℹ️ [SystemLogger] ${message}`);
   },
 };
 

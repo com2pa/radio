@@ -31,10 +31,10 @@ const updateActionConstraint = async () => {
                 ));
             `;
             await pool.query(addConstraintQuery);
-            console.log('✅ Constraint de acciones actualizado exitosamente');
+            // console.log('✅ Constraint de acciones actualizado exitosamente');
         }
     } catch (error) {
-        console.error('❌ Error actualizando constraint de acciones:', error);
+        // console.error('❌ Error actualizando constraint de acciones:', error);
     }
 };
 
@@ -65,7 +65,7 @@ const createActivityLogTable = async () => {
 
     try {
         await pool.query(query);
-        console.log('✅ Tabla "activity_logs" creada/verificada exitosamente');
+        // console.log('✅ Tabla "activity_logs" creada/verificada exitosamente');
         
         // Actualizar constraint si la tabla ya existía
         await updateActionConstraint();
@@ -73,7 +73,7 @@ const createActivityLogTable = async () => {
         // Crear índices para mejor performance
         await createIndexes();
     } catch (error) {
-        console.error('❌ Error creando tabla activity_logs:', error);
+        // console.error('❌ Error creando tabla activity_logs:', error);
     }
 };
 
@@ -90,9 +90,9 @@ const createIndexes = async () => {
         for (const indexQuery of indexes) {
             await pool.query(indexQuery);
         }
-        console.log('✅ Índices para activity_logs creados/verificados');
+        // console.log('✅ Índices para activity_logs creados/verificados');
     } catch (error) {
-        console.error('❌ Error creando índices para activity_logs:', error);
+        // console.error('❌ Error creando índices para activity_logs:', error);
     }
 };
 
@@ -197,11 +197,21 @@ const getActivityLogs = async (page = 1, limit = 10, filters = {}) => {
         const offset = (page - 1) * limit;
         queryParams.push(limit, offset);
 
+        // console.log('📊 [getActivityLogs] Ejecutando consultas SQL:');
+        // console.log('📊 [getActivityLogs] Data Query:', dataQuery);
+        // console.log('📊 [getActivityLogs] Count Query:', countQuery);
+        // console.log('📊 [getActivityLogs] Query Params:', queryParams);
+        // console.log('📊 [getActivityLogs] Count Query Params:', whereConditions.length > 0 ? queryParams.slice(0, -2) : []);
+
         // Ejecutar ambas consultas en paralelo
         const [dataResult, countResult] = await Promise.all([
             pool.query(dataQuery, queryParams),
             pool.query(countQuery, whereConditions.length > 0 ? queryParams.slice(0, -2) : [])
         ]);
+
+        // console.log('✅ [getActivityLogs] Resultados:');
+        // console.log('✅ [getActivityLogs] Data rows:', dataResult.rows.length);
+        // console.log('✅ [getActivityLogs] Total count:', countResult.rows[0].count);
 
         return {
             logs: dataResult.rows,
@@ -210,6 +220,7 @@ const getActivityLogs = async (page = 1, limit = 10, filters = {}) => {
             totalPages: Math.ceil(parseInt(countResult.rows[0].count) / limit)
         };
     } catch (error) {
+        // console.error('❌ [getActivityLogs] Error:', error);
         throw new Error(`Error getting activity logs: ${error.message}`);
     }
 };

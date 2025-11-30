@@ -27,6 +27,8 @@ const contactRouter = require('./controllers/contact')
 const comentPodcastsRouter = require('./controllers/comentPodcasts')
 const programsRouter = require('./controllers/programs')
 const musicRouter = require('./controllers/music')
+const activityLogRouter = require('./controllers/activityLog')
+const perfilUserRouter = require('./controllers/perfilUser')
 testConnection()
 
 
@@ -61,6 +63,7 @@ app.use('/api/contacts', contactRouter) // gestión de contactos
 app.use('/api/coment-podcasts', comentPodcastsRouter) // gestión de comentarios de podcasts
 app.use('/api/programs', programsRouter)
 app.use('/api/music', musicRouter) // gestión de programas de radio
-
+app.use('/api/activity-log', activityLogRouter)
+app.use('/api/perfilUser',perfilUserRouter)
 
 module.exports = app

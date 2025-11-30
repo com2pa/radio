@@ -205,6 +205,23 @@ const updateUserStatus = async (id, status) => {
         throw new Error(`Error updating user status: ${error.message}`);
     }
 };
+// actualizar la contraseña de usuario
+const updateUserPassword = async (id, password) => {
+    const query = `
+        UPDATE users
+        SET user_password = $1,
+            user_updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $2
+        RETURNING user_id, user_email
+    `;
+    
+    try {
+        const result = await pool.query(query, [password, id]);
+        return result.rows[0];
+    } catch (error) {
+        throw new Error(`Error updating user password: ${error.message}`);
+    }
+}
 
 // Inicializar tabla
 createUserTable();
@@ -216,5 +233,6 @@ module.exports = {
     getUserByEmail,
     updateUser,
     updateUserStatus,
+    updateUserPassword,
     deleteUser
 };
