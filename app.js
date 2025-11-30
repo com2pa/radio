@@ -30,6 +30,7 @@ const programsRouter = require('./controllers/programs')
 const musicRouter = require('./controllers/music')
 const activityLogRouter = require('./controllers/activityLog')
 const perfilUserRouter = require('./controllers/perfilUser')
+const authRouter = require('./controllers/auth')
 testConnection()
 
 
@@ -72,6 +73,7 @@ app.use('/api/register',useRouter)
 app.use('/api/role',roleRouter)
 app.use('/api/login', loginRouter)
 app.use('/api/logout', logoutRouter)
+app.use('/api/auth', authRouter) // Endpoints de autenticación (verificación de email, reset de contraseña)
 app.use('/api/menu', MenuRouter)
 app.use('/api/category-news', CategoryNewsRouter)//categoria noticias
 app.use('/api/subcategory-news',subcategoriesRouter) //categorizacion noticias

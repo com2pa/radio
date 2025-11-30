@@ -55,7 +55,9 @@ const createPlaylistsTable = async () => {
         await updateSongsTableSchema();
         
     } catch (error) {
-        console.error('❌ Error creando tablas de música:', error);
+        console.error('❌ Error creando tablas de música:', error.message);
+        // No hacer throw para evitar que crashee el servidor
+        // El error se manejará en la función de inicialización
         throw error;
     }
 };
@@ -458,8 +460,42 @@ const removeSongsNotInList = async (playlistId, activeSpotifyTrackIds) => {
     }
 };
 
-// Inicializar tablas al cargar el módulo
-createPlaylistsTable();
+// Inicializar tablas de forma asíncrona y no bloqueante
+// Esperar un poco para asegurar que la conexión esté establecida
+const initializeMusicTables = async () => {
+    // Esperar un poco para asegurar que la conexión esté establecida
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createPlaylistsTable();
+            console.log('✅ Tablas de música inicializadas correctamente');
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tablas de música (intento ${i + 1}/${retries}):`, error.message);
+            
+            if (i < retries - 1) {
+                console.log(`⏳ Reintentando en ${delay / 1000} segundos...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudieron inicializar las tablas de música después de varios intentos');
+                console.error('   La aplicación continuará, pero las funcionalidades de música pueden no estar disponibles.');
+            }
+        }
+    }
+};
+
+// Ejecutar inicialización de forma asíncrona sin bloquear
+// Usar setImmediate para ejecutar después de que el módulo se cargue completamente
+setImmediate(() => {
+    initializeMusicTables().catch(err => {
+        console.warn('⚠️ Error en inicialización asíncrona de tablas de música:', err.message);
+        // No crashear el servidor si falla la inicialización
+    });
+});
 
 module.exports = {
     createPlaylistsTable,

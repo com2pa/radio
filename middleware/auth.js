@@ -7,44 +7,56 @@ const { SESSION_INACTIVITY_TIMEOUT } = require('../config');
 // Middleware para extraer y verificar el usuario del token
 const userExtractor = async (req, res, next) => {
   try {
-    console.log('🔐 MIDDLEWARE INICIADO - Ruta:', req.path);
-    console.log('🔐 Headers recibidos:', req.headers);
-    console.log('🍪 Cookies recibidas:', req.cookies);
+    // Solo loguear en desarrollo para no ralentizar producción
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔐 MIDDLEWARE INICIADO - Ruta:', req.path);
+    }
     const token = req.cookies?.accesstoken || req.headers.authorization?.split(' ')[1];
-    console.log('🔐 Token extraído:', token ? 'SÍ' : 'NO');
     if (!token) {
-      console.log('❌ No se encontró token');
       // await authLogger.logAccessDenied(null, req, 'Token no proporcionado');
       return res.status(401).json({ error: 'Acceso no autorizado - Token requerido' });
     }
 
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    const user = await User.getUserById(decoded.id);
+    
+    // Obtener usuario con timeout para evitar bloqueos
+    const user = await Promise.race([
+      User.getUserById(decoded.id),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout obteniendo usuario')), 5000)
+      )
+    ]);
 
     if (!user) {
       await authLogger.logAccessDenied(null, req, 'Usuario no encontrado');
       return res.status(401).json({ error: 'Usuario no válido' });
     }
 
-    // ⭐ VERIFICAR INACTIVIDAD DEL USUARIO
+    // ⭐ VERIFICAR INACTIVIDAD DEL USUARIO (optimizado para no bloquear)
+    // Solo verificar si last_activity_at existe (evitar cálculos innecesarios)
     if (user.last_activity_at) {
       const lastActivity = new Date(user.last_activity_at);
       const now = new Date();
       const timeSinceActivity = now.getTime() - lastActivity.getTime();
 
-      console.log(`⏱️ Tiempo desde última actividad: ${Math.floor(timeSinceActivity / 1000 / 60)} minutos`);
+      // Solo loguear en desarrollo para no ralentizar producción
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`⏱️ Tiempo desde última actividad: ${Math.floor(timeSinceActivity / 1000 / 60)} minutos`);
+      }
 
       // Si ha pasado más tiempo del permitido, cerrar sesión automáticamente
       if (timeSinceActivity > SESSION_INACTIVITY_TIMEOUT) {
         console.log('⏱️ Sesión expirada por inactividad. Cerrando sesión automáticamente...');
         
-        // Cerrar sesión automáticamente
-        try {
-          await User.updateUserStatus(user.user_id, false);
-          await authLogger.logLogout(user.user_id, req);
-        } catch (error) {
-          console.error('Error al cerrar sesión por inactividad:', error);
-        }
+        // Cerrar sesión automáticamente (asíncrono, no bloquear)
+        User.updateUserStatus(user.user_id, false).catch(err => {
+          console.error('Error al cerrar sesión por inactividad (no crítico):', err);
+        });
+        
+        // Logging asíncrono
+        authLogger.logLogout(user.user_id, req).catch(err => {
+          console.error('Error en logging de logout (no crítico):', err);
+        });
 
         // Limpiar cookies
         res.clearCookie('accesstoken', {
@@ -58,7 +70,11 @@ const userExtractor = async (req, res, next) => {
           sameSite: 'strict'
         });
 
-        await authLogger.logAccessDenied(user.user_id, req, 'Sesión expirada por inactividad');
+        // Logging asíncrono
+        authLogger.logAccessDenied(user.user_id, req, 'Sesión expirada por inactividad').catch(err => {
+          console.error('Error en logging de acceso denegado (no crítico):', err);
+        });
+        
         return res.status(401).json({ 
           error: 'Sesión expirada por inactividad - Por favor inicia sesión nuevamente',
           sessionExpired: true,
@@ -67,14 +83,11 @@ const userExtractor = async (req, res, next) => {
       }
     }
 
-    // ⭐ ACTUALIZAR ÚLTIMA ACTIVIDAD
-    try {
-      await User.updateLastActivity(user.user_id);
-      console.log('✅ Última actividad actualizada');
-    } catch (error) {
-      console.error('Error actualizando última actividad:', error);
-      // No bloquear la solicitud si falla la actualización
-    }
+    // ⭐ ACTUALIZAR ÚLTIMA ACTIVIDAD (asíncrono, no bloquear)
+    // Hacer esto en segundo plano para no retrasar la respuesta
+    User.updateLastActivity(user.user_id).catch(error => {
+      console.error('Error actualizando última actividad (no crítico):', error);
+    });
 
       // ⭐ ADAPTAR la estructura del usuario para que coincida con lo que espera el sistema
     const adaptedUser = {
@@ -87,7 +100,10 @@ const userExtractor = async (req, res, next) => {
       verify: user.user_verify     // user_verify en lugar de verify
     };
 
-    console.log('🔐 Usuario adaptado:', adaptedUser);
+    // Solo loguear en desarrollo
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔐 Usuario adaptado:', adaptedUser);
+    }
 
     if (!adaptedUser.verify) {
       await authLogger.logAccessDenied(adaptedUser._id, req, 'Cuenta no verificada');
@@ -123,19 +139,13 @@ const roleAuthorization = (roles) => {
         return res.status(401).json({ error: 'Usuario no válido' });
       }
 
-      console.log('🔐 Usuario completo para autorización:', user);
-      console.log('🔐 Roles requeridos:', roles);
-
       // Verificar permisos basado en role_id
       const hasPermissionById = checkRolePermission(user.role_id, roles);
-      console.log('🔐 Tiene permisos por ID:', hasPermissionById);
       
       // Verificar permisos por nombre de rol también
       const hasPermissionByName = roles.includes(user.role_name);
-      console.log('🔐 Verificando por nombre de rol:', user.role_name, 'en:', roles, 'resultado:', hasPermissionByName);
       
       const hasPermission = hasPermissionById || hasPermissionByName;
-      console.log('🔐 Tiene permisos (final):', hasPermission);
       
       if (!hasPermission) {
         await authLogger.logAccessDenied(req.user._id, req, `Intento de acceso no autorizado. Rol requerido: ${roles.join(', ')}. Rol actual: ${user.role_name} (ID: ${user.role_id})`);
@@ -155,10 +165,8 @@ const roleAuthorization = (roles) => {
   };
 };
 
-// Función auxiliar para verificar permisos de rol
+// Función auxiliar para verificar permisos de rol (optimizada)
 const checkRolePermission = (userRoleId, requiredRoles) => {
-  console.log('🔐 checkRolePermission - userRoleId:', userRoleId, 'requiredRoles:', requiredRoles);
-  
   // Mapeo de nombres de roles a IDs
   const roleMap = {
     'user': 3,
@@ -171,21 +179,14 @@ const checkRolePermission = (userRoleId, requiredRoles) => {
   // Convertir roles requeridos a IDs mínimos
   const requiredRoleIds = requiredRoles.map(role => roleMap[role]).filter(id => id !== undefined);
   
-  console.log('🔐 requiredRoleIds:', requiredRoleIds);
-  
   // Si no se encontraron roles válidos, denegar acceso
   if (requiredRoleIds.length === 0) {
-    console.log('🔐 No se encontraron roles válidos');
     return false;
   }
 
   // Verificar si el usuario tiene al menos uno de los roles requeridos
   const minRequiredRoleId = Math.min(...requiredRoleIds);
-  const hasPermission = userRoleId >= minRequiredRoleId;
-  
-  console.log('🔐 minRequiredRoleId:', minRequiredRoleId, 'hasPermission:', hasPermission);
-  
-  return hasPermission;
+  return userRoleId >= minRequiredRoleId;
 };
 
 // Middleware para verificar si el usuario está activo/online

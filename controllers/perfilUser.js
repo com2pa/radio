@@ -106,15 +106,22 @@ perfilUserRouter.put('/profile', userExtractor, activityLogger, async (req, res)
     }
 });
 
-// Cambiar contraseña del usuario
-perfilUserRouter.put('/profile/password', userExtractor, activityLogger, async (req, res) => {
+// Cambiar contraseña del usuario - VERSIÓN ULTRA OPTIMIZADA
+// Removido activityLogger para evitar bloqueos
+perfilUserRouter.put('/profile/password', userExtractor, async (req, res) => {
+    const startTime = Date.now();
+    
     try {
         const userId = req.user.id;
         const passwordData = req.body;
 
-        console.log('🔐 [PUT /profile/password] Cambiando contraseña para usuario:', userId);
-
+        // Ejecutar servicio directamente (ya tiene timeouts internos)
         const result = await userServices.changePassword(userId, passwordData);
+        
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime > 1000) {
+            console.warn(`⚠️ [PUT /profile/password] Tardó ${elapsedTime}ms (debería ser < 500ms)`);
+        }
 
         if (!result.success) {
             return res.status(result.status).json({
@@ -123,11 +130,8 @@ perfilUserRouter.put('/profile/password', userExtractor, activityLogger, async (
             });
         }
 
-        // Si la contraseña se cambió exitosamente, cerrar sesión limpiando cookies
+        // Limpiar cookies inmediatamente si requiere logout (antes de enviar respuesta)
         if (result.requiresLogout) {
-            console.log('🔐 [PUT /profile/password] Cerrando sesión después de cambiar contraseña');
-            
-            // Limpiar todas las cookies de autenticación
             res.clearCookie('accesstoken', {
                 secure: process.env.NODE_ENV === 'production',
                 httpOnly: true,
@@ -141,21 +145,40 @@ perfilUserRouter.put('/profile/password', userExtractor, activityLogger, async (
             });
         }
 
-        systemLogger.info(`Usuario ${userId} cambió su contraseña - Sesión cerrada automáticamente`);
-        
+        // ENVIAR RESPUESTA INMEDIATAMENTE (sin esperar nada más)
         res.status(200).json({
             success: true,
             message: result.message,
             requiresLogout: result.requiresLogout || false,
             data: result.data
         });
+        
+        // Logging asíncrono después de enviar respuesta (info es síncrono, no necesita catch)
+        setImmediate(() => {
+            systemLogger.info(`Usuario ${userId} cambió su contraseña`);
+        });
+        
+        return; // Asegurar que no se ejecute nada más
+        
     } catch (error) {
-        console.error('❌ [PUT /profile/password] Error:', error);
-        await systemLogger.logSystemError(null, req,`Error cambiando contraseña del usuario ${req.user.id}: ${error.message}`);
-        res.status(500).json({
+        const elapsedTime = Date.now() - startTime;
+        console.error(`❌ [PUT /profile/password] Error después de ${elapsedTime}ms:`, error);
+        
+        // Manejar timeout específicamente
+        if (error.message.includes('Timeout')) {
+            return res.status(408).json({
+                success: false,
+                message: 'La operación está tomando demasiado tiempo. Por favor, intenta nuevamente.'
+            });
+        }
+        
+        // Logging asíncrono (no bloquear)
+        systemLogger.logSystemError(null, req, `Error cambiando contraseña: ${error.message}`).catch(() => {});
+        
+        return res.status(500).json({
             success: false,
             error: 'Error interno del servidor',
-            details:error.message
+            details: error.message
         });
     }
 });

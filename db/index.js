@@ -15,9 +15,9 @@ const pool = new Pool({
   // Opciones adicionales para mejor rendimiento y estabilidad
   max: 20, // máximo de clientes en el pool
   idleTimeoutMillis: 30000, // cierra clientes inactivos después de 30s
-  connectionTimeoutMillis: 10000, // tiempo de espera para conexión (aumentado a 10 segundos)
-  query_timeout: 30000, // timeout para queries (30 segundos)
-  statement_timeout: 30000, // timeout para statements (30 segundos)
+  connectionTimeoutMillis: 10000, // tiempo de espera para conexión (10 segundos)
+  query_timeout: 5000, // timeout para queries (5 segundos - operaciones simples deben ser rápidas)
+  statement_timeout: 5000, // timeout para statements (5 segundos)
 });
 
 // Eventos para monitorear la conexión
