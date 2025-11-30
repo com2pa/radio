@@ -100,11 +100,9 @@ useRouter.put('/:id/role', async (req, res) => {
         });
     }
 });
-// terminar de definir si usar user_status o user_verify 
-// para actualizar el rol del usuario
-
-// para user_status si esta activo o inactivo
-// para user_verify si esta verificado o no por email
+// Nota: 
+// - user_status: indica si el usuario está activo/inactivo (online/offline)
+// - user_verify: indica si el usuario ha verificado su email
 
 
 module.exports = useRouter;

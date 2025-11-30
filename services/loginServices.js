@@ -50,10 +50,14 @@ const loginService = async (data, req) => {
             };
         }
 
-        // // Actualizar estado del usuario a 'activo' si es necesario
+        // Actualizar estado del usuario a 'activo' si es necesario
         if (!userExists.user_status) {
             await User.updateUserStatus(userExists.user_id, true);
         }
+        
+        // Inicializar/actualizar última actividad al hacer login
+        await User.updateLastActivity(userExists.user_id);
+        
         // generar el token
         const userForToken = {
             id: userExists.user_id,

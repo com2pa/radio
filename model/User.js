@@ -15,6 +15,7 @@ const createUserTable = async () => {
       role_id INT DEFAULT 3, -- DEFAULT 'user' (role_id = 3)
       user_status BOOLEAN DEFAULT FALSE,
       user_verify BOOLEAN DEFAULT FALSE,
+      last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       user_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       user_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_role
@@ -223,8 +224,68 @@ const updateUserPassword = async (id, password) => {
     }
 }
 
-// Inicializar tabla
-createUserTable();
+// UPDATE - Actualizar última actividad del usuario
+const updateLastActivity = async (id) => {
+    const query = `
+        UPDATE users 
+        SET last_activity_at = CURRENT_TIMESTAMP
+        WHERE user_id = $1
+        RETURNING user_id, last_activity_at
+    `;
+
+    try {
+        const result = await pool.query(query, [id]);
+        return result.rows[0];
+    } catch (error) {
+        throw new Error(`Error updating last activity: ${error.message}`);
+    }
+};
+
+// Migración: Agregar columna last_activity_at si no existe
+const addLastActivityColumn = async () => {
+    // Esperar un poco para asegurar que la conexión esté establecida
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const checkColumnQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='last_activity_at'
+    `;
+    
+    try {
+        const result = await pool.query(checkColumnQuery);
+        
+        // Si la columna no existe, agregarla
+        if (result.rows.length === 0) {
+            const alterTableQuery = `
+                ALTER TABLE users 
+                ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            `;
+            await pool.query(alterTableQuery);
+            console.log('✅ Columna "last_activity_at" agregada a la tabla users');
+        } else {
+            console.log('✅ Columna "last_activity_at" ya existe en la tabla users');
+        }
+    } catch (error) {
+        // No bloquear la aplicación si falla la migración
+        console.warn('⚠️ No se pudo verificar/agregar columna last_activity_at:', error.message);
+        console.warn('   La aplicación continuará, pero la funcionalidad de inactividad puede no funcionar correctamente.');
+    }
+};
+
+// Inicializar tabla y migración de forma asíncrona sin bloquear
+createUserTable().then(() => {
+    // Ejecutar migración después de crear la tabla
+    addLastActivityColumn().catch(err => {
+        console.warn('⚠️ Error en migración de last_activity_at:', err.message);
+    });
+}).catch(err => {
+    console.error('❌ Error creando tabla users:', err.message);
+    // Intentar migración de todas formas después de un tiempo
+    setTimeout(() => {
+        addLastActivityColumn().catch(() => {});
+    }, 5000);
+});
 
 module.exports = {
     createUser,
@@ -234,5 +295,6 @@ module.exports = {
     updateUser,
     updateUserStatus,
     updateUserPassword,
+    updateLastActivity,
     deleteUser
 };

@@ -14,39 +14,10 @@ const createRoleTable = async () => {
     try {
         await pool.query(query);
         console.log('✅ Tabla "roles" creada/verificada exitosamente');
-        
-        // // Insertar roles por defecto
-        // await insertDefaultRoles();
     } catch (error) {
         console.error('❌ Error creando tabla roles:', error);
     }
 };
-
-// Insertar roles por defecto
-// const insertDefaultRoles = async () => {
-//     const defaultRoles = [
-//         { name: 'user', description: 'Usuario básico' },
-//         { name: 'view', description: 'Usuario de lectura' },
-//         { name: 'edit', description: 'Usuario de escritura' },
-//         { name: 'admin', description: 'Administrador del sistema' },
-//         { name: 'superAdmin', description: 'Administrador superior del sistema' }
-//     ];
-
-//     for (const role of defaultRoles) {
-//         const query = `
-//             INSERT INTO roles (role_name, role_description)
-//             VALUES ($1, $2)
-//             ON CONFLICT (role_name) DO NOTHING
-//         `;
-        
-//         try {
-//             await pool.query(query, [role.name, role.description]);
-//         } catch (error) {
-//             console.error('❌ Error insertando rol:', error);
-//         }
-//     }
-//     console.log('✅ Roles por defecto insertados/verificados');
-// };
 
 // Crear un nuevo rol
 const createRole = async (roleData) => {

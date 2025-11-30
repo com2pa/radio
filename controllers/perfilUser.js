@@ -1,6 +1,6 @@
 const perfilUserRouter = require('express').Router();
 const { userExtractor, roleAuthorization } = require('../middleware/auth');
-const podscatsServices = require('../services/userServices');
+const userServices = require('../services/userServices');
 const systemLogger = require('../help/system/systemLogger');
 const { activityLogger } = require('../middleware/activityLogger');
 
@@ -11,7 +11,7 @@ perfilUserRouter.get('/profile', userExtractor, async (req, res) => {
 
         console.log('📥 [GET /profile] Obteniendo perfil para usuario ID:', userId);
 
-        const result = await podscatsServices.getUserProfile(userId);
+        const result = await userServices.getUserProfile(userId);
 
         if (!result.success) {
             console.log('❌ [GET /profile] Error obteniendo perfil:', result.message);
@@ -46,7 +46,7 @@ perfilUserRouter.get('/profile/edit', userExtractor, async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const result = await podscatsServices.getProfileForEdit(userId);
+        const result = await userServices.getProfileForEdit(userId);
 
         if (!result.success) {
             return res.status(result.status).json({
@@ -78,7 +78,7 @@ perfilUserRouter.put('/profile', userExtractor, activityLogger, async (req, res)
         console.log('📥 [perfilUser] Datos recibidos:', userData);
         console.log('📥 [perfilUser] User ID:', userId);
 
-        const result = await podscatsServices.updateUserProfile(userId, userData);
+        const result = await userServices.updateUserProfile(userId, userData);
 
         console.log('📤 [perfilUser] Resultado de actualización:', result);
 
@@ -114,7 +114,7 @@ perfilUserRouter.put('/profile/password', userExtractor, activityLogger, async (
 
         console.log('🔐 [PUT /profile/password] Cambiando contraseña para usuario:', userId);
 
-        const result = await podscatsServices.changePassword(userId, passwordData);
+        const result = await userServices.changePassword(userId, passwordData);
 
         if (!result.success) {
             return res.status(result.status).json({
@@ -185,7 +185,7 @@ perfilUserRouter.patch('/profile', userExtractor, activityLogger, async (req, re
             });
         }
 
-        const result = await podscatsServices.updateUserProfile(userId, filteredUpdates);
+        const result = await userServices.updateUserProfile(userId, filteredUpdates);
 
         if (!result.success) {
             return res.status(result.status).json({

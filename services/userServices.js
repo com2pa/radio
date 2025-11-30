@@ -772,18 +772,13 @@ const changePassword = async (userId, passwordData) => {
                                 </p>
                             </div>
                             
-                            <!-- Nueva contraseña -->
+                            <!-- Información de seguridad -->
                             <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 12px; padding: 25px; margin-bottom: 30px; border-left: 4px solid #ffc107;">
                                 <p style="font-size: 14px; color: #856404; margin: 0 0 10px 0; font-weight: 600;">
-                                    🔑 Tu nueva contraseña:
+                                    🔑 Información importante:
                                 </p>
-                                <div style="background: #f8f9fa; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; text-align: center; margin: 15px 0;">
-                                    <p style="font-size: 18px; color: #856404; margin: 0; font-family: 'Courier New', monospace; font-weight: 600; letter-spacing: 2px;">
-                                        ${newPassword}
-                                    </p>
-                                </div>
-                                <p style="font-size: 12px; color: #856404; margin: 15px 0 0 0; line-height: 1.5; font-style: italic;">
-                                    ⚠️ Por seguridad, guarda esta contraseña en un lugar seguro. Te recomendamos cambiarla después de iniciar sesión si lo consideras necesario.
+                                <p style="font-size: 14px; color: #856404; margin: 0; line-height: 1.5;">
+                                    Tu contraseña ha sido actualizada exitosamente. Por seguridad, no enviamos contraseñas por correo electrónico. Si no realizaste este cambio, contacta inmediatamente con nuestro soporte.
                                 </p>
                             </div>
                             
@@ -827,7 +822,7 @@ const changePassword = async (userId, passwordData) => {
                 </body>
                 </html>
             `,
-            text: `🎵 Radio Oxígeno 88.1 FM\n\nHola ${user.user_name},\n\nTu contraseña ha sido actualizada exitosamente. Por seguridad, tu sesión ha sido cerrada y deberás iniciar sesión nuevamente con tu nueva contraseña.\n\n🔑 Tu nueva contraseña: ${newPassword}\n\n⚠️ Por seguridad, guarda esta contraseña en un lugar seguro.\n\nSi no realizaste este cambio, por favor contacta inmediatamente con nuestro soporte.\n\nConsejos de seguridad:\n• Usa una contraseña única para cada cuenta\n• No compartas tu contraseña con nadie\n• Cambia tu contraseña regularmente\n• Tu sesión ha sido cerrada automáticamente por seguridad\n\nSi tienes alguna pregunta, no dudes en contactar a nuestro equipo de soporte.\n\nEquipo de Radio Oxígeno 88.1 FM\nTu música, tu oxígeno`
+            text: `🎵 Radio Oxígeno 88.1 FM\n\nHola ${user.user_name},\n\nTu contraseña ha sido actualizada exitosamente. Por seguridad, tu sesión ha sido cerrada y deberás iniciar sesión nuevamente con tu nueva contraseña.\n\n⚠️ Por seguridad, no enviamos contraseñas por correo electrónico. Si no realizaste este cambio, contacta inmediatamente con nuestro soporte.\n\nConsejos de seguridad:\n• Usa una contraseña única para cada cuenta\n• No compartas tu contraseña con nadie\n• Cambia tu contraseña regularmente\n• Tu sesión ha sido cerrada automáticamente por seguridad\n\nSi tienes alguna pregunta, no dudes en contactar a nuestro equipo de soporte.\n\nEquipo de Radio Oxígeno 88.1 FM\nTu música, tu oxígeno`
         });
 
         return {

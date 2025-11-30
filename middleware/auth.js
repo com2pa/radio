@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../model/User');
 const authLogger = require('../help/auth/authLogger');
 const systemLogger = require('../help/system/systemLogger');
+const { SESSION_INACTIVITY_TIMEOUT } = require('../config');
 
 // Middleware para extraer y verificar el usuario del token
 const userExtractor = async (req, res, next) => {
@@ -23,6 +24,56 @@ const userExtractor = async (req, res, next) => {
     if (!user) {
       await authLogger.logAccessDenied(null, req, 'Usuario no encontrado');
       return res.status(401).json({ error: 'Usuario no válido' });
+    }
+
+    // ⭐ VERIFICAR INACTIVIDAD DEL USUARIO
+    if (user.last_activity_at) {
+      const lastActivity = new Date(user.last_activity_at);
+      const now = new Date();
+      const timeSinceActivity = now.getTime() - lastActivity.getTime();
+
+      console.log(`⏱️ Tiempo desde última actividad: ${Math.floor(timeSinceActivity / 1000 / 60)} minutos`);
+
+      // Si ha pasado más tiempo del permitido, cerrar sesión automáticamente
+      if (timeSinceActivity > SESSION_INACTIVITY_TIMEOUT) {
+        console.log('⏱️ Sesión expirada por inactividad. Cerrando sesión automáticamente...');
+        
+        // Cerrar sesión automáticamente
+        try {
+          await User.updateUserStatus(user.user_id, false);
+          await authLogger.logLogout(user.user_id, req);
+        } catch (error) {
+          console.error('Error al cerrar sesión por inactividad:', error);
+        }
+
+        // Limpiar cookies
+        res.clearCookie('accesstoken', {
+          secure: process.env.NODE_ENV === 'production',
+          httpOnly: true,
+          sameSite: 'strict'
+        });
+        res.clearCookie('jwt', {
+          secure: process.env.NODE_ENV === 'production',
+          httpOnly: true,
+          sameSite: 'strict'
+        });
+
+        await authLogger.logAccessDenied(user.user_id, req, 'Sesión expirada por inactividad');
+        return res.status(401).json({ 
+          error: 'Sesión expirada por inactividad - Por favor inicia sesión nuevamente',
+          sessionExpired: true,
+          inactivityTimeout: Math.floor(SESSION_INACTIVITY_TIMEOUT / 1000 / 60) // minutos
+        });
+      }
+    }
+
+    // ⭐ ACTUALIZAR ÚLTIMA ACTIVIDAD
+    try {
+      await User.updateLastActivity(user.user_id);
+      console.log('✅ Última actividad actualizada');
+    } catch (error) {
+      console.error('Error actualizando última actividad:', error);
+      // No bloquear la solicitud si falla la actualización
     }
 
       // ⭐ ADAPTAR la estructura del usuario para que coincida con lo que espera el sistema

@@ -6,10 +6,25 @@ const webSocketService = require('./services/websocketService');
 const server = http.createServer(app);
 
 // Configurar Socket.IO
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['https://Radio.onrender.com'])
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
+
 const io = new Server(server, {
   cors: {
-    origin: "*", // En producción, especifica el dominio de tu frontend
-    methods: ["GET", "POST"]
+    origin: (origin, callback) => {
+      // Permitir conexiones sin origen (móviles, Postman, etc.) solo en desarrollo
+      if (!origin && process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('No permitido por CORS'));
+      }
+    },
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 

@@ -4,9 +4,10 @@ const app = express()
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
 const morgan = require("morgan")
+// GraphQL deshabilitado temporalmente
 // const { graphqlHTTP } = require('graphql-http')
-const schema = require('./graphql/schema')
-const root = require('./graphql/resolvers')
+// const schema = require('./graphql/schema')
+// const root = require('./graphql/resolvers')
 const path = require('path');
 
 // verificar la conexión a la base de datos
@@ -33,17 +34,38 @@ testConnection()
 
 
 
-app.use(cors())
+// Configuración de CORS
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['https://Radio.onrender.com'])
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permitir solicitudes sin origen (móviles, Postman, etc.) solo en desarrollo
+    if (!origin && process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
 app.use(cookieParser())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('tiny'))
 
-//rutas 
+// Rutas de la API
+// GraphQL deshabilitado temporalmente
 // app.use('/graphql', graphqlHTTP({
 //   schema: schema,
 //   rootValue: root,
-//   graphiql: true // Habilita la interfaz web para probar consultas
+//   graphiql: true
 // }))
 
 app.use('/api/register',useRouter)
