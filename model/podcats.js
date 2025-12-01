@@ -388,8 +388,32 @@ const checkDuplicatePodcast = async (podcastTitle, subcategoryId, excludePodcast
     }
 };
 
-// Inicializar tabla
-createPodcastsTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializePodcastsTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3 segundos para que otras tablas se creen primero
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createPodcastsTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla podcasts (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla podcasts después de varios intentos');
+            }
+        }
+    }
+};
+
+// Ejecutar de forma asíncrona sin bloquear
+setImmediate(() => {
+    initializePodcastsTable().catch(() => {});
+});
 
 module.exports = {
     createPodcastsTable,

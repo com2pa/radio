@@ -286,7 +286,33 @@ const deleteSubCategoryPodcasts = async (id) => {
     }
 };
 
-createSubCategoryPodcastsTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeSubCategoryPodcastsTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 4000)); // Esperar 4 segundos para que category_podscats se cree primero
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createSubCategoryPodcastsTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla subcategoryPodcasts (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla subcategoryPodcasts después de varios intentos');
+                console.error('   Asegúrate de que la tabla category_podscats exista primero');
+            }
+        }
+    }
+};
+
+// Ejecutar de forma asíncrona sin bloquear
+setImmediate(() => {
+    initializeSubCategoryPodcastsTable().catch(() => {});
+});
 
 // Exportar funciones
 module.exports = {

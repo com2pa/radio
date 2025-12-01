@@ -12,6 +12,7 @@ const path = require('path');
 
 // verificar la conexión a la base de datos
 const { testConnection } = require('./db/index')
+const { PAGE_URL } = require('./config')
 const useRouter = require('./controllers/user')
 const roleRouter = require('./controllers/role')
 const loginRouter = require('./controllers/login')
@@ -38,23 +39,83 @@ testConnection()
 // Configuración de CORS
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['https://Radio.onrender.com'])
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
+  : [
+      PAGE_URL, // URL desde config.js
+      'http://localhost:5173', 
+      'http://localhost:3000', 
+      'http://localhost:5174',
+      'http://127.0.0.1:5173', 
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5174'
+    ];
+
+// Función para verificar si una IP es de red local (LAN)
+const isLocalNetwork = (origin) => {
+  if (!origin) return false;
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname;
+    
+    // Permitir localhost y 127.0.0.1
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true;
+    }
+    
+    // Permitir IPs de red local privada
+    // 192.168.x.x
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+      return true;
+    }
+    // 10.x.x.x
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+      return true;
+    }
+    // 172.16.x.x - 172.31.x.x
+    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    return false;
+  }
+};
 
 app.use(cors({
   origin: (origin, callback) => {
     // Permitir solicitudes sin origen (móviles, Postman, etc.) solo en desarrollo
-    if (!origin && process.env.NODE_ENV !== 'production') {
+    if (!origin) {
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      // En producción, rechazar solicitudes sin origen
+      return callback(new Error('No permitido por CORS: origen no especificado'));
+    }
+    
+    // En desarrollo, permitir orígenes de la red local (para acceso desde móviles)
+    if (process.env.NODE_ENV !== 'production' && isLocalNetwork(origin)) {
+      console.log(`✅ CORS: Origen de red local permitido: ${origin}`);
       return callback(null, true);
     }
-    if (!origin || allowedOrigins.includes(origin)) {
+    
+    // Verificar si el origen está en la lista de permitidos
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('No permitido por CORS'));
+      // En desarrollo, mostrar el origen que está siendo rechazado para debugging
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`⚠️ CORS: Origen rechazado: ${origin}`);
+        console.warn(`   Orígenes permitidos: ${allowedOrigins.join(', ')}`);
+        console.warn(`   ¿Es red local? ${isLocalNetwork(origin) ? 'Sí' : 'No'}`);
+      }
+      callback(new Error(`No permitido por CORS: ${origin}`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400 // 24 horas para preflight cache
 }))
 app.use(cookieParser())
 app.use(express.json())
@@ -89,5 +150,33 @@ app.use('/api/programs', programsRouter)
 app.use('/api/music', musicRouter) // gestión de programas de radio
 app.use('/api/activity-log', activityLogRouter)
 app.use('/api/perfilUser',perfilUserRouter)
+
+// Middleware de manejo de errores de CORS
+app.use((err, req, res, next) => {
+  if (err.message && err.message.includes('CORS')) {
+    const origin = req.headers.origin || 'No especificado';
+    return res.status(403).json({
+      error: 'CORS Error',
+      message: err.message,
+      origin: origin,
+      isLocalNetwork: isLocalNetwork(origin),
+      allowedOrigins: process.env.NODE_ENV === 'production' 
+        ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['https://Radio.onrender.com'])
+        : [
+            'http://localhost:5173', 
+            'http://localhost:3000', 
+            'http://localhost:5174', 
+            'http://127.0.0.1:5173', 
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:5174',
+            'Cualquier IP de red local (192.168.x.x, 10.x.x.x, 172.16-31.x.x) en desarrollo'
+          ],
+      tip: process.env.NODE_ENV !== 'production' 
+        ? 'En desarrollo, se permiten automáticamente orígenes de red local para acceso desde dispositivos móviles.'
+        : 'Verifica que el origen esté en la lista de permitidos.'
+    });
+  }
+  next(err);
+});
 
 module.exports = app

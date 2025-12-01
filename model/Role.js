@@ -69,8 +69,32 @@ const getRoleByName = async (name) => {
     }
 };
 
-// Inicializar tabla
-createRoleTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeRoleTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1 segundo inicial
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createRoleTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla roles (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla roles después de varios intentos');
+            }
+        }
+    }
+};
+
+// Ejecutar de forma asíncrona sin bloquear
+setImmediate(() => {
+    initializeRoleTable().catch(() => {});
+});
 
 module.exports = {
     createRole,

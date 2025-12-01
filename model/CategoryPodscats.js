@@ -118,8 +118,32 @@ const deleteCategoryPodscats = async (categoryId) => {
     }
 };
 
-// Inicializar tabla
-createCategoryPodscatsTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeCategoryPodscatsTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3 segundos para que users se cree primero
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createCategoryPodscatsTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla category_podscats (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla category_podscats después de varios intentos');
+            }
+        }
+    }
+};
+
+// Ejecutar de forma asíncrona sin bloquear
+setImmediate(() => {
+    initializeCategoryPodscatsTable().catch(() => {});
+});
 
 module.exports = {
     createCategoryPodscats,

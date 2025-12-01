@@ -273,18 +273,39 @@ const addLastActivityColumn = async () => {
     }
 };
 
-// Inicializar tabla y migración de forma asíncrona sin bloquear
-createUserTable().then(() => {
-    // Ejecutar migración después de crear la tabla
-    addLastActivityColumn().catch(err => {
-        console.warn('⚠️ Error en migración de last_activity_at:', err.message);
-    });
-}).catch(err => {
-    console.error('❌ Error creando tabla users:', err.message);
-    // Intentar migración de todas formas después de un tiempo
-    setTimeout(() => {
-        addLastActivityColumn().catch(() => {});
-    }, 5000);
+// Inicializar tabla de forma asíncrona con retries
+const initializeUserTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Esperar 2 segundos para que roles se cree primero
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createUserTable();
+            // Ejecutar migración después de crear la tabla
+            await addLastActivityColumn().catch(err => {
+                console.warn('⚠️ Error en migración de last_activity_at:', err.message);
+            });
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla users (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla users después de varios intentos');
+                // Intentar migración de todas formas después de un tiempo
+                setTimeout(() => {
+                    addLastActivityColumn().catch(() => {});
+                }, 5000);
+            }
+        }
+    }
+};
+
+// Ejecutar de forma asíncrona sin bloquear
+setImmediate(() => {
+    initializeUserTable().catch(() => {});
 });
 
 module.exports = {
