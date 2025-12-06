@@ -1276,8 +1276,31 @@ const getOccupiedProgramsCount = async (date = null) => {
     }
 };
 
-// Inicializar tabla
-createProgramsTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeProgramsTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar a users
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createProgramsTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla programs (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla programs después de varios intentos');
+            }
+        }
+    }
+};
+
+setImmediate(() => {
+    initializeProgramsTable().catch(() => {});
+});
 
 module.exports = {
     // Configuración de validaciones

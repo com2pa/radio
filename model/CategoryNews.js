@@ -70,7 +70,32 @@ const deleteCategoryNews = async (categoryId) => {
         throw new Error('Error eliminando categoría de noticias: ' + error.message);
     }
 };         
-createCategoryNewsTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeCategoryNewsTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createCategoryNewsTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla category_news (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla category_news después de varios intentos');
+            }
+        }
+    }
+};
+
+setImmediate(() => {
+    initializeCategoryNewsTable().catch(() => {});
+});
+
 module.exports = {
     createCategoryNews,
     getAllCategoryNews,

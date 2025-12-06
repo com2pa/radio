@@ -249,8 +249,31 @@ const deleteContact = async (id) => {
     }
 };
 
-// Inicializar tabla
-createContactTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeContactTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createContactTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla contacts (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla contacts después de varios intentos');
+            }
+        }
+    }
+};
+
+setImmediate(() => {
+    initializeContactTable().catch(() => {});
+});
 
 module.exports = {
     createContact,

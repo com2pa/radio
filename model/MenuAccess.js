@@ -316,7 +316,34 @@ const createMenuItemWithCheck = async (menuData) => {
     }
 }
 
-createMenuAccessTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeMenuAccessTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 2500)); // Esperar 2.5 segundos para que roles se cree primero
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createMenuAccessTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla menu_access (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla menu_access después de varios intentos');
+                console.error('   Asegúrate de que la tabla roles exista primero');
+            }
+        }
+    }
+};
+
+// Ejecutar de forma asíncrona sin bloquear
+setImmediate(() => {
+    initializeMenuAccessTable().catch(() => {});
+});
+
 module.exports = {
     createMenuAccessTable,
     getMenuByRole,

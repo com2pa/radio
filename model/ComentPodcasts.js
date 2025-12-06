@@ -391,8 +391,31 @@ const getComentPodcastCount = async (podcastId) => {
     }
 };
 
-// Inicializar tabla
-createComentPodcastsTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeComentPodcastsTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Esperar a podcasts y users
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createComentPodcastsTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla coment_podcasts (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla coment_podcasts después de varios intentos');
+            }
+        }
+    }
+};
+
+setImmediate(() => {
+    initializeComentPodcastsTable().catch(() => {});
+});
 
 module.exports = {
     createComentPodcastsTable,

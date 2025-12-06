@@ -476,8 +476,31 @@ const updateNewsStatus = async (id, status, userId) => {
     }
 };
 
-// Inicializar tabla
-createNewsTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeNewsTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar a category_news y subcategories
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createNewsTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla news (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla news después de varios intentos');
+            }
+        }
+    }
+};
+
+setImmediate(() => {
+    initializeNewsTable().catch(() => {});
+});
 
 module.exports = {
     createNews,

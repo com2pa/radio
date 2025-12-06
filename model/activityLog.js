@@ -267,8 +267,31 @@ const getActivityStats = async (days = 30) => {
     }
 };
 
-// Inicializar tabla
-createActivityLogTable();
+// Inicializar tabla de forma asíncrona con retries
+const initializeActivityLogTable = async () => {
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar a users
+    
+    let retries = 3;
+    let delay = 2000;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await createActivityLogTable();
+            return;
+        } catch (error) {
+            console.warn(`⚠️ Error inicializando tabla activity_log (intento ${i + 1}/${retries}):`, error.message);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error('❌ No se pudo inicializar la tabla activity_log después de varios intentos');
+            }
+        }
+    }
+};
+
+setImmediate(() => {
+    initializeActivityLogTable().catch(() => {});
+});
 
 module.exports = {
     createActivityLog,
