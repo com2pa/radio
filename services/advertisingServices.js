@@ -1,5 +1,6 @@
 const Advertising = require('../model/Advertising');
 const User = require('../model/User');
+const emailService = require('./emailService');
 
 // Obtener todas las publicidades
 const getAllAdvertising = async () => {
@@ -268,6 +269,26 @@ const createAdvertising = async (data, userId) => {
 
         const savedAdvertising = await Advertising.createAdvertising(advertisingData);
 
+        // Enviar correo a la empresa si se publicó una imagen
+        if (savedAdvertising.advertising_image) {
+            try {
+                await emailService.sendAdvertisingImagePublished({
+                    company_name: savedAdvertising.company_name,
+                    email: savedAdvertising.email,
+                    start_date: savedAdvertising.start_date,
+                    end_date: savedAdvertising.end_date,
+                    advertising_days: savedAdvertising.advertising_days,
+                    advertising_image: savedAdvertising.advertising_image,
+                    rif: savedAdvertising.rif,
+                    phone: savedAdvertising.phone
+                });
+                console.log(`✅ Email de confirmación enviado a: ${savedAdvertising.email}`);
+            } catch (emailError) {
+                console.error('❌ Error enviando email de confirmación de publicidad:', emailError);
+                // No fallar la operación si falla el email, pero registrar el error
+            }
+        }
+
         return {
             success: true,
             data: savedAdvertising,
@@ -427,6 +448,29 @@ const updateAdvertising = async (id, data) => {
         if (data.advertising_image !== undefined) updateData.advertising_image = data.advertising_image || null;
 
         const updatedAdvertising = await Advertising.updateAdvertising(id, updateData);
+
+        // Enviar correo a la empresa si se actualizó o agregó una imagen
+        const imageWasUpdated = data.advertising_image !== undefined && updatedAdvertising.advertising_image;
+        const imageWasAdded = !existingAdvertising.advertising_image && updatedAdvertising.advertising_image;
+        
+        if (imageWasUpdated || imageWasAdded) {
+            try {
+                await emailService.sendAdvertisingImagePublished({
+                    company_name: updatedAdvertising.company_name,
+                    email: updatedAdvertising.email,
+                    start_date: updatedAdvertising.start_date,
+                    end_date: updatedAdvertising.end_date,
+                    advertising_days: updatedAdvertising.advertising_days,
+                    advertising_image: updatedAdvertising.advertising_image,
+                    rif: updatedAdvertising.rif,
+                    phone: updatedAdvertising.phone
+                });
+                console.log(`✅ Email de confirmación de imagen actualizada enviado a: ${updatedAdvertising.email}`);
+            } catch (emailError) {
+                console.error('❌ Error enviando email de confirmación de publicidad actualizada:', emailError);
+                // No fallar la operación si falla el email, pero registrar el error
+            }
+        }
 
         return {
             success: true,

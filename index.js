@@ -100,6 +100,44 @@ io.on('connection', (socket) => {
       }
     });
   });
+
+  // ==================== EVENTOS PARA PUBLICIDAD ====================
+  
+  // Evento para unirse a la sala main (página principal)
+  socket.on('join-main-room', () => {
+    socket.join('main-room');
+    console.log(`📢 Cliente ${socket.id} se unió a la sala main-room`);
+    
+    // Confirmar unión a la sala
+    socket.emit('joined-main-room', {
+      room: 'main-room',
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Evento para salir de la sala main
+  socket.on('leave-main-room', () => {
+    socket.leave('main-room');
+    console.log(`📢 Cliente ${socket.id} salió de la sala main-room`);
+  });
+
+  // Evento para unirse a la sala user-dashboard
+  socket.on('join-user-dashboard-room', () => {
+    socket.join('user-dashboard-room');
+    console.log(`📢 Cliente ${socket.id} se unió a la sala user-dashboard-room`);
+    
+    // Confirmar unión a la sala
+    socket.emit('joined-user-dashboard-room', {
+      room: 'user-dashboard-room',
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Evento para salir de la sala user-dashboard
+  socket.on('leave-user-dashboard-room', () => {
+    socket.leave('user-dashboard-room');
+    console.log(`📢 Cliente ${socket.id} salió de la sala user-dashboard-room`);
+  });
 });
 
 //corriendo el servidor

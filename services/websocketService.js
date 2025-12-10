@@ -340,6 +340,160 @@ class WebSocketService {
       count: count
     });
   }
+
+  // ==================== MÉTODOS PARA PUBLICIDAD ====================
+
+  // Notificar nueva publicidad publicada
+  notifyNewAdvertising(advertisingData) {
+    if (!this.io) {
+      console.error('❌ WebSocket Service no inicializado');
+      return;
+    }
+
+    const notification = {
+      type: 'new_advertising',
+      title: '📢 Nueva Publicidad Publicada',
+      message: `Nueva publicidad de ${advertisingData.company_name} ha sido publicada`,
+      data: {
+        advertising_id: advertisingData.advertising_id,
+        company_name: advertisingData.company_name,
+        rif: advertisingData.rif,
+        email: advertisingData.email,
+        phone: advertisingData.phone,
+        start_date: advertisingData.start_date,
+        end_date: advertisingData.end_date,
+        advertising_days: advertisingData.advertising_days,
+        advertising_image: advertisingData.advertising_image,
+        status: advertisingData.status,
+        advertising_created_at: advertisingData.advertising_created_at
+      },
+      timestamp: new Date().toISOString(),
+      priority: 'high'
+    };
+
+    // Enviar a la sala de administradores
+    this.io.to('admin-room').emit('notification', notification);
+    
+    // Enviar a la sala main (página principal)
+    this.io.to('main-room').emit('new_advertising', {
+      advertising: advertisingData,
+      notification: notification
+    });
+
+    // Enviar a la sala user-dashboard (dashboard de usuarios)
+    this.io.to('user-dashboard-room').emit('new_advertising', {
+      advertising: advertisingData,
+      notification: notification
+    });
+
+    // También emitir globalmente para actualización en tiempo real
+    this.io.emit('new_advertising_global', {
+      advertising: advertisingData,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log('📢 Notificación de nueva publicidad enviada:', {
+      to: ['admin-room', 'main-room', 'user-dashboard-room'],
+      company: advertisingData.company_name,
+      advertising_id: advertisingData.advertising_id
+    });
+  }
+
+  // Notificar publicidad actualizada
+  notifyAdvertisingUpdated(advertisingData) {
+    if (!this.io) {
+      console.error('❌ WebSocket Service no inicializado');
+      return;
+    }
+
+    const notification = {
+      type: 'advertising_updated',
+      title: '✏️ Publicidad Actualizada',
+      message: `Publicidad de ${advertisingData.company_name} ha sido actualizada`,
+      data: {
+        advertising_id: advertisingData.advertising_id,
+        company_name: advertisingData.company_name,
+        rif: advertisingData.rif,
+        email: advertisingData.email,
+        advertising_image: advertisingData.advertising_image,
+        status: advertisingData.status,
+        advertising_updated_at: advertisingData.advertising_updated_at
+      },
+      timestamp: new Date().toISOString(),
+      priority: 'medium'
+    };
+
+    // Enviar a la sala de administradores
+    this.io.to('admin-room').emit('notification', notification);
+    
+    // Enviar a las salas main y user-dashboard
+    this.io.to('main-room').emit('advertising_updated', {
+      advertising: advertisingData,
+      notification: notification
+    });
+
+    this.io.to('user-dashboard-room').emit('advertising_updated', {
+      advertising: advertisingData,
+      notification: notification
+    });
+
+    // Emitir globalmente
+    this.io.emit('advertising_updated_global', {
+      advertising: advertisingData,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log('📢 Notificación de publicidad actualizada enviada:', {
+      advertising_id: advertisingData.advertising_id,
+      company: advertisingData.company_name
+    });
+  }
+
+  // Notificar publicidad eliminada
+  notifyAdvertisingDeleted(advertisingData) {
+    if (!this.io) {
+      console.error('❌ WebSocket Service no inicializado');
+      return;
+    }
+
+    const notification = {
+      type: 'advertising_deleted',
+      title: '🗑️ Publicidad Eliminada',
+      message: `Publicidad de ${advertisingData.company_name} ha sido eliminada`,
+      data: {
+        advertising_id: advertisingData.advertising_id,
+        company_name: advertisingData.company_name,
+        rif: advertisingData.rif
+      },
+      timestamp: new Date().toISOString(),
+      priority: 'medium'
+    };
+
+    // Enviar a la sala de administradores
+    this.io.to('admin-room').emit('notification', notification);
+    
+    // Enviar a las salas main y user-dashboard
+    this.io.to('main-room').emit('advertising_deleted', {
+      advertising_id: advertisingData.advertising_id,
+      notification: notification
+    });
+
+    this.io.to('user-dashboard-room').emit('advertising_deleted', {
+      advertising_id: advertisingData.advertising_id,
+      notification: notification
+    });
+
+    // Emitir globalmente
+    this.io.emit('advertising_deleted_global', {
+      advertising_id: advertisingData.advertising_id,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log('📢 Notificación de publicidad eliminada enviada:', {
+      advertising_id: advertisingData.advertising_id,
+      company: advertisingData.company_name
+    });
+  }
 }
 
 // Crear instancia singleton
