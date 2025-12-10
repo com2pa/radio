@@ -32,6 +32,7 @@ const musicRouter = require('./controllers/music')
 const activityLogRouter = require('./controllers/activityLog')
 const perfilUserRouter = require('./controllers/perfilUser')
 const authRouter = require('./controllers/auth')
+const advertisingRouter = require('./controllers/advertising')
 testConnection()
 
 
@@ -150,6 +151,7 @@ app.use('/api/programs', programsRouter)
 app.use('/api/music', musicRouter) // gestión de programas de radio
 app.use('/api/activity-log', activityLogRouter)
 app.use('/api/perfilUser',perfilUserRouter)
+app.use('/api/advertising', advertisingRouter) // gestión de publicidad
 
 // Middleware de manejo de errores de CORS
 app.use((err, req, res, next) => {
