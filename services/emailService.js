@@ -202,6 +202,7 @@ const sendAdvertisingImagePublished = async (advertisingData) => {
             start_date, 
             end_date, 
             advertising_days,
+            publication_days,
             advertising_image,
             rif,
             phone
@@ -297,6 +298,11 @@ const sendAdvertisingImagePublished = async (advertisingData) => {
                                     <p style="font-size: 14px; color: #6c757d; margin: 0 0 10px 0;">
                                         <strong style="color: #2c3e50;">Duración:</strong> ${advertising_days} día${advertising_days > 1 ? 's' : ''}
                                     </p>
+                                    ${publication_days && Array.isArray(publication_days) && publication_days.length > 0 ? `
+                                    <p style="font-size: 14px; color: #6c757d; margin: 0 0 10px 0;">
+                                        <strong style="color: #2c3e50;">Días de publicación:</strong> ${publication_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}
+                                    </p>
+                                    ` : ''}
                                     ${imageUrl ? `
                                     <p style="font-size: 14px; color: #6c757d; margin: 15px 0 0 0;">
                                         <strong style="color: #2c3e50;">Imagen de publicidad:</strong>

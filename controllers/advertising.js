@@ -48,6 +48,36 @@ const handleImageUpload = (req, res, next) => {
     next();
 };
 
+// Middleware para manejar errores de multer
+const handleMulterError = (err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({
+                success: false,
+                error: 'El archivo es demasiado grande. El tamaño máximo es 5MB'
+            });
+        }
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return res.status(400).json({
+                success: false,
+                error: 'Demasiados archivos. Solo se permite un archivo'
+            });
+        }
+        return res.status(400).json({
+            success: false,
+            error: `Error al subir el archivo: ${err.message}`
+        });
+    }
+    if (err) {
+        // Error del fileFilter u otro error
+        return res.status(400).json({
+            success: false,
+            error: err.message || 'Error al procesar el archivo'
+        });
+    }
+    next();
+};
+
 // Obtener todas las publicidades
 Advertising.get('/all', async (req, res) => {
     try {
@@ -93,6 +123,15 @@ Advertising.get('/active', async (req, res) => {
 Advertising.get('/images/:filename', (req, res) => {
     try {
         const { filename } = req.params;
+        
+        // Validar que el filename no contenga rutas relativas (seguridad)
+        if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+            return res.status(400).json({
+                success: false,
+                message: 'Nombre de archivo inválido'
+            });
+        }
+        
         const imagePath = path.join(__dirname, '..', 'uploads', 'advertising', filename);
         
         // Verificar que el archivo existe
@@ -108,9 +147,12 @@ Advertising.get('/images/:filename', (req, res) => {
         let contentType = 'image/jpeg';
         if (ext === '.png') contentType = 'image/png';
         if (ext === '.webp') contentType = 'image/webp';
+        if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
         
+        // Establecer headers de seguridad y cache
         res.setHeader('Content-Type', contentType);
-        res.sendFile(imagePath);
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache por 1 año
+        res.sendFile(path.resolve(imagePath)); // Usar path.resolve para ruta absoluta
     } catch (error) {
         res.status(500).json({
             success: false,
@@ -156,7 +198,8 @@ Advertising.get('/rif/:rif', async (req, res) => {
 Advertising.post('/upload-image', 
     userExtractor, 
     roleAuthorization(['admin', 'superAdmin']), 
-    upload.single('advertising_image'), 
+    upload.single('advertising_image'),
+    handleMulterError,
     async (req, res) => {
     try {
         if (!req.file) {
@@ -213,7 +256,8 @@ Advertising.post('/upload-image',
 Advertising.put('/:id/image', 
     userExtractor, 
     roleAuthorization(['admin', 'superAdmin']), 
-    upload.single('advertising_image'), 
+    upload.single('advertising_image'),
+    handleMulterError,
     async (req, res) => {
     try {
         const advertisingId = req.params.id;
@@ -343,7 +387,8 @@ Advertising.get('/:id', async (req, res) => {
 Advertising.post('/create', 
     userExtractor, 
     roleAuthorization(['admin', 'superAdmin']), 
-    upload.single('advertising_image'), 
+    upload.single('advertising_image'),
+    handleMulterError,
     handleImageUpload,
     async (req, res) => {
     const userId = req.user.id; // Obtenemos el ID del usuario autenticado
@@ -421,7 +466,8 @@ Advertising.post('/create',
 Advertising.put('/update/:id', 
     userExtractor, 
     roleAuthorization(['admin', 'superAdmin']), 
-    upload.single('advertising_image'), 
+    upload.single('advertising_image'),
+    handleMulterError,
     handleImageUpload,
     async (req, res) => {
     const advertisingId = req.params.id;

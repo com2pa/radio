@@ -205,6 +205,45 @@ const createAdvertising = async (data, userId) => {
             };
         }
 
+        // Validar días de la semana (publication_days)
+        const validDays = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+        let publicationDays = [];
+        
+        if (data.publication_days !== undefined && data.publication_days !== null) {
+            // Si viene como string JSON, parsearlo
+            if (typeof data.publication_days === 'string') {
+                try {
+                    publicationDays = JSON.parse(data.publication_days);
+                } catch (e) {
+                    // Si no es JSON válido, tratar como array separado por comas
+                    publicationDays = data.publication_days.split(',').map(d => d.trim().toLowerCase());
+                }
+            } else if (Array.isArray(data.publication_days)) {
+                publicationDays = data.publication_days.map(d => 
+                    typeof d === 'string' ? d.trim().toLowerCase() : String(d).toLowerCase()
+                );
+            } else {
+                return {
+                    success: false,
+                    message: 'Los días de publicación deben ser un array de días de la semana',
+                    status: 400
+                };
+            }
+
+            // Validar que todos los días sean válidos
+            const invalidDays = publicationDays.filter(day => !validDays.includes(day));
+            if (invalidDays.length > 0) {
+                return {
+                    success: false,
+                    message: `Días inválidos: ${invalidDays.join(', ')}. Los días válidos son: ${validDays.join(', ')}`,
+                    status: 400
+                };
+            }
+
+            // Eliminar duplicados
+            publicationDays = [...new Set(publicationDays)];
+        }
+
         // Validar longitud de campos
         if (data.company_name.trim().length < 2 || data.company_name.trim().length > 200) {
             return {
@@ -262,6 +301,7 @@ const createAdvertising = async (data, userId) => {
             end_date: data.end_date,
             time: data.time ? data.time.trim() : null,
             advertising_days: advertisingDays,
+            publication_days: publicationDays.length > 0 ? publicationDays : [],
             status: data.status !== undefined ? data.status : true,
             advertising_image: data.advertising_image || null,
             user_id: userId || null
@@ -278,6 +318,7 @@ const createAdvertising = async (data, userId) => {
                     start_date: savedAdvertising.start_date,
                     end_date: savedAdvertising.end_date,
                     advertising_days: savedAdvertising.advertising_days,
+                    publication_days: savedAdvertising.publication_days || [],
                     advertising_image: savedAdvertising.advertising_image,
                     rif: savedAdvertising.rif,
                     phone: savedAdvertising.phone
@@ -391,6 +432,45 @@ const updateAdvertising = async (id, data) => {
             }
         }
 
+        // Validar días de la semana (publication_days) si se proporciona
+        const validDays = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+        let publicationDays = null;
+        
+        if (data.publication_days !== undefined && data.publication_days !== null) {
+            // Si viene como string JSON, parsearlo
+            if (typeof data.publication_days === 'string') {
+                try {
+                    publicationDays = JSON.parse(data.publication_days);
+                } catch (e) {
+                    // Si no es JSON válido, tratar como array separado por comas
+                    publicationDays = data.publication_days.split(',').map(d => d.trim().toLowerCase());
+                }
+            } else if (Array.isArray(data.publication_days)) {
+                publicationDays = data.publication_days.map(d => 
+                    typeof d === 'string' ? d.trim().toLowerCase() : String(d).toLowerCase()
+                );
+            } else {
+                return {
+                    success: false,
+                    message: 'Los días de publicación deben ser un array de días de la semana',
+                    status: 400
+                };
+            }
+
+            // Validar que todos los días sean válidos
+            const invalidDays = publicationDays.filter(day => !validDays.includes(day));
+            if (invalidDays.length > 0) {
+                return {
+                    success: false,
+                    message: `Días inválidos: ${invalidDays.join(', ')}. Los días válidos son: ${validDays.join(', ')}`,
+                    status: 400
+                };
+            }
+
+            // Eliminar duplicados
+            publicationDays = [...new Set(publicationDays)];
+        }
+
         // Validar longitud de campos si se proporcionan
         if (data.company_name !== undefined) {
             if (data.company_name.trim().length < 2 || data.company_name.trim().length > 200) {
@@ -444,6 +524,7 @@ const updateAdvertising = async (id, data) => {
         if (data.end_date !== undefined) updateData.end_date = data.end_date;
         if (data.time !== undefined) updateData.time = data.time ? data.time.trim() : null;
         if (data.advertising_days !== undefined) updateData.advertising_days = parseInt(data.advertising_days);
+        if (publicationDays !== null) updateData.publication_days = publicationDays.length > 0 ? publicationDays : [];
         if (data.status !== undefined) updateData.status = data.status;
         if (data.advertising_image !== undefined) updateData.advertising_image = data.advertising_image || null;
 
@@ -461,6 +542,7 @@ const updateAdvertising = async (id, data) => {
                     start_date: updatedAdvertising.start_date,
                     end_date: updatedAdvertising.end_date,
                     advertising_days: updatedAdvertising.advertising_days,
+                    publication_days: updatedAdvertising.publication_days || [],
                     advertising_image: updatedAdvertising.advertising_image,
                     rif: updatedAdvertising.rif,
                     phone: updatedAdvertising.phone

@@ -1,5 +1,31 @@
 const { pool } = require('../db/index');
 
+// Función para agregar columna publication_days si no existe
+const addPublicationDaysColumnIfNotExists = async () => {
+    try {
+        const checkColumnQuery = `
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'advertising' 
+            AND column_name = 'publication_days'
+        `;
+        
+        const result = await pool.query(checkColumnQuery);
+        
+        if (result.rows.length === 0) {
+            await pool.query(`
+                ALTER TABLE advertising 
+                ADD COLUMN publication_days JSONB DEFAULT '[]'::jsonb
+            `);
+            console.log('✅ Columna "publication_days" agregada exitosamente a la tabla "advertising"');
+        } else {
+            console.log('✅ Columna "publication_days" ya existe en la tabla "advertising"');
+        }
+    } catch (error) {
+        console.error('❌ Error agregando columna publication_days:', error);
+    }
+};
+
 // Crear tabla de publicidad
 const createAdvertisingTable = async () => {
     const query = `
@@ -14,6 +40,7 @@ const createAdvertisingTable = async () => {
             end_date DATE NOT NULL,
             time VARCHAR(50),
             advertising_days INT NOT NULL,
+            publication_days JSONB DEFAULT '[]'::jsonb,
             status BOOLEAN DEFAULT TRUE,
             advertising_image VARCHAR(255) CHECK (advertising_image IS NULL OR advertising_image ~ '\.(jpg|jpeg|png|webp)$'),
             user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
@@ -26,6 +53,9 @@ const createAdvertisingTable = async () => {
     try {
         await pool.query(query);
         console.log('✅ Tabla "advertising" creada/verificada exitosamente');
+        
+        // Verificar si la columna publication_days existe, si no, agregarla
+        await addPublicationDaysColumnIfNotExists();
     } catch (error) {
         console.error('❌ Error creando tabla advertising:', error);
         throw error;
@@ -44,6 +74,7 @@ const createAdvertising = async (advertisingData) => {
         end_date,
         time,
         advertising_days,
+        publication_days,
         status,
         advertising_image,
         user_id
@@ -52,13 +83,18 @@ const createAdvertising = async (advertisingData) => {
     const query = `
         INSERT INTO advertising (
             company_name, rif, company_address, phone, email,
-            start_date, end_date, time, advertising_days, status,
+            start_date, end_date, time, advertising_days, publication_days, status,
             advertising_image, user_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
     `;
 
     try {
+        // Convertir publication_days a JSON si es un array
+        const publicationDaysJson = publication_days 
+            ? JSON.stringify(Array.isArray(publication_days) ? publication_days : [])
+            : JSON.stringify([]);
+
         const result = await pool.query(query, [
             company_name,
             rif,
@@ -69,6 +105,7 @@ const createAdvertising = async (advertisingData) => {
             end_date,
             time || null,
             advertising_days,
+            publicationDaysJson,
             status !== undefined ? status : true,
             advertising_image || null,
             user_id || null
@@ -201,6 +238,7 @@ const updateAdvertising = async (id, advertisingData) => {
         end_date,
         time,
         advertising_days,
+        publication_days,
         status,
         advertising_image
     } = advertisingData;
@@ -253,6 +291,15 @@ const updateAdvertising = async (id, advertisingData) => {
     if (advertising_days !== undefined) {
         fields.push(`advertising_days = $${paramCount}`);
         values.push(advertising_days);
+        paramCount++;
+    }
+    if (publication_days !== undefined) {
+        fields.push(`publication_days = $${paramCount}`);
+        // Convertir publication_days a JSON si es un array
+        const publicationDaysJson = publication_days 
+            ? JSON.stringify(Array.isArray(publication_days) ? publication_days : [])
+            : JSON.stringify([]);
+        values.push(publicationDaysJson);
         paramCount++;
     }
     if (status !== undefined) {

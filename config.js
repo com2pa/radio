@@ -1,5 +1,5 @@
 const PAGE_URL = process.env.NODE_ENV === 'production'
-    ? 'https://Radio.onrender.com'
+    ? 'https://oxigenoradio.com'
     : 'http://localhost:5173';
 
 // Configuración de URL de base de datos
